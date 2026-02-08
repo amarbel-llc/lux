@@ -159,7 +159,7 @@ var mcpStdioCmd = &cobra.Command{
 			return fmt.Errorf("loading config: %w", err)
 		}
 
-		t := transport.NewStdio(os.Stdin, os.Stdout)
+		t := mcp.NewStdioTransport(os.Stdin, os.Stdout)
 		srv, err := mcp.New(cfg, t)
 		if err != nil {
 			return fmt.Errorf("creating MCP server: %w", err)

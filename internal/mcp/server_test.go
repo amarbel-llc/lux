@@ -9,7 +9,6 @@ import (
 
 	"github.com/friedenberg/lux/internal/config"
 	"github.com/friedenberg/lux/internal/jsonrpc"
-	"github.com/friedenberg/lux/internal/transport"
 )
 
 func TestMCPInitialize(t *testing.T) {
@@ -142,17 +141,13 @@ func runMCPTestMulti(t *testing.T, msgs ...string) []*jsonrpc.Message {
 
 	var input bytes.Buffer
 	for _, msg := range msgs {
-		input.WriteString("Content-Length: ")
-		input.WriteString(string(rune('0' + len(msg)/100%10)))
-		input.WriteString(string(rune('0' + len(msg)/10%10)))
-		input.WriteString(string(rune('0' + len(msg)%10)))
-		input.WriteString("\r\n\r\n")
 		input.WriteString(msg)
+		input.WriteString("\n")
 	}
 
 	var output bytes.Buffer
 	cfg := &config.Config{}
-	tr := transport.NewStdio(strings.NewReader(input.String()), &output)
+	tr := NewStdioTransport(strings.NewReader(input.String()), &output)
 
 	srv, err := New(cfg, tr)
 	if err != nil {
@@ -179,40 +174,17 @@ func parseResponses(t *testing.T, data string) []*jsonrpc.Message {
 	t.Helper()
 
 	var responses []*jsonrpc.Message
-	remaining := data
+	lines := strings.Split(data, "\n")
 
-	for len(remaining) > 0 {
-		idx := strings.Index(remaining, "\r\n\r\n")
-		if idx == -1 {
-			break
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
 		}
-
-		header := remaining[:idx]
-		var contentLength int
-		for _, line := range strings.Split(header, "\r\n") {
-			if strings.HasPrefix(strings.ToLower(line), "content-length:") {
-				parts := strings.SplitN(line, ":", 2)
-				if len(parts) == 2 {
-					json.Unmarshal([]byte(strings.TrimSpace(parts[1])), &contentLength)
-				}
-			}
-		}
-
-		if contentLength == 0 {
-			break
-		}
-
-		bodyStart := idx + 4
-		if bodyStart+contentLength > len(remaining) {
-			break
-		}
-
-		body := remaining[bodyStart : bodyStart+contentLength]
-		remaining = remaining[bodyStart+contentLength:]
 
 		var msg jsonrpc.Message
-		if err := json.Unmarshal([]byte(body), &msg); err != nil {
-			t.Logf("failed to parse response: %v (body: %s)", err, body)
+		if err := json.Unmarshal([]byte(line), &msg); err != nil {
+			t.Logf("failed to parse response: %v (line: %s)", err, line)
 			continue
 		}
 		responses = append(responses, &msg)
