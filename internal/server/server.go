@@ -1,0 +1,100 @@
+package server
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"sync"
+
+	"github.com/friedenberg/lux/internal/config"
+	"github.com/friedenberg/lux/internal/control"
+	"github.com/friedenberg/lux/internal/jsonrpc"
+	"github.com/friedenberg/lux/internal/lsp"
+	"github.com/friedenberg/lux/internal/subprocess"
+)
+
+type Server struct {
+	cfg         *config.Config
+	pool        *subprocess.Pool
+	router      *Router
+	clientConn  *jsonrpc.Conn
+	controlSrv  *control.Server
+	initParams  *lsp.InitializeParams
+	initialized bool
+	mu          sync.RWMutex
+	done        chan struct{}
+}
+
+func New(cfg *config.Config) (*Server, error) {
+	router, err := NewRouter(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("creating router: %w", err)
+	}
+
+	s := &Server{
+		cfg:    cfg,
+		router: router,
+		done:   make(chan struct{}),
+	}
+
+	executor := subprocess.NewNixExecutor()
+	s.pool = subprocess.NewPool(executor, serverNotificationHandler(s))
+
+	for _, l := range cfg.LSPs {
+		s.pool.Register(l.Name, l.Flake, l.Args)
+	}
+
+	return s, nil
+}
+
+func (s *Server) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	handler := NewHandler(s)
+	s.clientConn = jsonrpc.NewConn(os.Stdin, os.Stdout, handler.Handle)
+
+	controlSrv, err := control.NewServer(s.cfg.SocketPath(), s.pool)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not start control socket: %v\n", err)
+	} else {
+		s.controlSrv = controlSrv
+		go s.controlSrv.Run(ctx)
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- s.clientConn.Run(ctx)
+	}()
+
+	select {
+	case err := <-errCh:
+		s.shutdown()
+		return err
+	case <-ctx.Done():
+		s.shutdown()
+		return ctx.Err()
+	case <-s.done:
+		return nil
+	}
+}
+
+func (s *Server) shutdown() {
+	s.pool.StopAll()
+
+	if s.controlSrv != nil {
+		s.controlSrv.Close()
+	}
+}
+
+func (s *Server) Close() {
+	close(s.done)
+}
+
+func (s *Server) Pool() *subprocess.Pool {
+	return s.pool
+}
+
+func (s *Server) Router() *Router {
+	return s.router
+}

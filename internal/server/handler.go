@@ -1,0 +1,232 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	"github.com/friedenberg/lux/internal/jsonrpc"
+	"github.com/friedenberg/lux/internal/lsp"
+	"github.com/friedenberg/lux/internal/subprocess"
+)
+
+type Handler struct {
+	server *Server
+}
+
+func NewHandler(s *Server) *Handler {
+	return &Handler{server: s}
+}
+
+func (h *Handler) Handle(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
+	switch msg.Method {
+	case lsp.MethodInitialize:
+		return h.handleInitialize(ctx, msg)
+	case lsp.MethodInitialized:
+		return nil, nil
+	case lsp.MethodShutdown:
+		return h.handleShutdown(ctx, msg)
+	case lsp.MethodExit:
+		h.handleExit()
+		return nil, nil
+	default:
+		return h.handleDefault(ctx, msg)
+	}
+}
+
+func (h *Handler) handleInitialize(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
+	var params lsp.InitializeParams
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		return jsonrpc.NewErrorResponse(*msg.ID, jsonrpc.InvalidParams, "invalid params", nil)
+	}
+
+	h.server.mu.Lock()
+	h.server.initParams = &params
+	h.server.initialized = true
+	h.server.mu.Unlock()
+
+	capabilities := h.server.aggregateCapabilities()
+
+	result := lsp.InitializeResult{
+		Capabilities: capabilities,
+		ServerInfo: &lsp.ServerInfo{
+			Name:    "lux",
+			Version: "0.1.0",
+		},
+	}
+
+	return jsonrpc.NewResponse(*msg.ID, result)
+}
+
+func (h *Handler) handleShutdown(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
+	h.server.pool.StopAll()
+	return jsonrpc.NewResponse(*msg.ID, nil)
+}
+
+func (h *Handler) handleExit() {
+	h.server.pool.StopAll()
+	h.server.Close()
+}
+
+func (h *Handler) handleDefault(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
+	if strings.HasPrefix(msg.Method, "$/") {
+		return nil, nil
+	}
+
+	lspName := h.server.router.Route(msg.Method, msg.Params)
+	if lspName == "" {
+		if msg.IsRequest() {
+			return jsonrpc.NewErrorResponse(*msg.ID, jsonrpc.MethodNotFound,
+				fmt.Sprintf("no LSP configured for this file type"), nil)
+		}
+		return nil, nil
+	}
+
+	h.server.mu.RLock()
+	initParams := h.server.initParams
+	h.server.mu.RUnlock()
+
+	inst, err := h.server.pool.GetOrStart(ctx, lspName, initParams)
+	if err != nil {
+		if msg.IsRequest() {
+			return jsonrpc.NewErrorResponse(*msg.ID, jsonrpc.InternalError,
+				fmt.Sprintf("starting LSP %s: %v", lspName, err), nil)
+		}
+		return nil, err
+	}
+
+	if msg.IsNotification() {
+		return nil, inst.Notify(msg.Method, msg.Params)
+	}
+
+	result, err := inst.Call(ctx, msg.Method, msg.Params)
+	if err != nil {
+		if rpcErr, ok := err.(*jsonrpc.Error); ok {
+			return jsonrpc.NewErrorResponse(*msg.ID, rpcErr.Code, rpcErr.Message, rpcErr.Data)
+		}
+		return jsonrpc.NewErrorResponse(*msg.ID, jsonrpc.InternalError, err.Error(), nil)
+	}
+
+	resp, _ := jsonrpc.NewResponse(*msg.ID, nil)
+	resp.Result = result
+	return resp, nil
+}
+
+func (h *Handler) forwardServerNotification(lspName string, msg *jsonrpc.Message) {
+	if h.server.clientConn != nil {
+		h.server.clientConn.Notify(msg.Method, msg.Params)
+	}
+}
+
+func serverNotificationHandler(s *Server) jsonrpc.Handler {
+	return func(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
+		if msg.IsNotification() {
+			if s.clientConn != nil {
+				s.clientConn.Notify(msg.Method, msg.Params)
+			}
+		}
+
+		if msg.IsRequest() {
+			if s.clientConn != nil {
+				result, err := s.clientConn.Call(ctx, msg.Method, msg.Params)
+				if err != nil {
+					return nil, err
+				}
+				resp, _ := jsonrpc.NewResponse(*msg.ID, nil)
+				resp.Result = result
+				return resp, nil
+			}
+		}
+
+		return nil, nil
+	}
+}
+
+func (s *Server) aggregateCapabilities() lsp.ServerCapabilities {
+	var caps []lsp.ServerCapabilities
+
+	cached, err := s.loadCachedCapabilities()
+	if err == nil {
+		caps = cached
+	}
+
+	if len(caps) == 0 {
+		caps = append(caps, defaultCapabilities())
+	}
+
+	return lsp.MergeCapabilities(caps...)
+}
+
+func (s *Server) loadCachedCapabilities() ([]lsp.ServerCapabilities, error) {
+	var caps []lsp.ServerCapabilities
+
+	for _, l := range s.cfg.LSPs {
+		cached, err := loadCapabilityCache(l.Name)
+		if err != nil {
+			continue
+		}
+		caps = append(caps, cached.Capabilities)
+	}
+
+	return caps, nil
+}
+
+func defaultCapabilities() lsp.ServerCapabilities {
+	return lsp.ServerCapabilities{
+		TextDocumentSync: 1,
+		HoverProvider:    true,
+		CompletionProvider: &lsp.CompletionOptions{
+			TriggerCharacters: []string{"."},
+		},
+		DefinitionProvider:     true,
+		TypeDefinitionProvider: true,
+		ImplementationProvider: true,
+		ReferencesProvider:     true,
+		DocumentSymbolProvider: true,
+		CodeActionProvider:     true,
+		DocumentFormattingProvider:      true,
+		DocumentRangeFormattingProvider: true,
+		RenameProvider:         true,
+		FoldingRangeProvider:   true,
+		SelectionRangeProvider: true,
+		WorkspaceSymbolProvider: true,
+	}
+}
+
+type CachedCapabilities struct {
+	Flake        string                 `json:"flake"`
+	Version      string                 `json:"version"`
+	DiscoveredAt string                 `json:"discovered_at"`
+	Capabilities lsp.ServerCapabilities `json:"capabilities"`
+}
+
+func loadCapabilityCache(name string) (*CachedCapabilities, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (s *Server) routeToAllLSPs(ctx context.Context, method string, params any) error {
+	s.mu.RLock()
+	initParams := s.initParams
+	s.mu.RUnlock()
+
+	for _, lspCfg := range s.cfg.LSPs {
+		inst, err := s.pool.GetOrStart(ctx, lspCfg.Name, initParams)
+		if err != nil {
+			continue
+		}
+		inst.Notify(method, params)
+	}
+
+	return nil
+}
+
+func (s *Server) broadcastToRunning(method string, params any) {
+	for _, status := range s.pool.Status() {
+		if status.State == subprocess.LSPStateRunning.String() {
+			if inst, ok := s.pool.Get(status.Name); ok {
+				inst.Notify(method, params)
+			}
+		}
+	}
+}
