@@ -1,0 +1,222 @@
+package mcp
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"strings"
+	"testing"
+
+	"github.com/friedenberg/lux/internal/config"
+	"github.com/friedenberg/lux/internal/jsonrpc"
+	"github.com/friedenberg/lux/internal/transport"
+)
+
+func TestMCPInitialize(t *testing.T) {
+	initMsg := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test"}}}`
+
+	resp := runMCPTest(t, initMsg)
+
+	if resp.ID.String() != "1" {
+		t.Errorf("expected id 1, got %s", resp.ID.String())
+	}
+	if resp.Error != nil {
+		t.Errorf("unexpected error: %v", resp.Error)
+	}
+
+	var result InitializeResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("failed to parse result: %v", err)
+	}
+
+	if result.ProtocolVersion != ProtocolVersion {
+		t.Errorf("expected protocol version %s, got %s", ProtocolVersion, result.ProtocolVersion)
+	}
+	if result.ServerInfo.Name != "lux" {
+		t.Errorf("expected server name 'lux', got %s", result.ServerInfo.Name)
+	}
+	if result.Capabilities.Tools == nil {
+		t.Error("expected tools capability to be present")
+	}
+}
+
+func TestMCPToolsList(t *testing.T) {
+	initMsg := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test"}}}`
+	toolsMsg := `{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`
+
+	responses := runMCPTestMulti(t, initMsg, toolsMsg)
+	if len(responses) < 2 {
+		t.Fatalf("expected 2 responses, got %d", len(responses))
+	}
+
+	// Find the tools/list response by ID (order may vary due to goroutines)
+	resp := findResponseByID(responses, "2")
+	if resp == nil {
+		t.Fatal("could not find response with id 2")
+	}
+	if resp.Error != nil {
+		t.Errorf("unexpected error: %v", resp.Error)
+	}
+
+	var result ToolsListResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("failed to parse result: %v", err)
+	}
+
+	expectedTools := []string{
+		"lsp_hover",
+		"lsp_definition",
+		"lsp_references",
+		"lsp_completion",
+		"lsp_format",
+		"lsp_document_symbols",
+		"lsp_code_action",
+		"lsp_rename",
+	}
+
+	if len(result.Tools) != len(expectedTools) {
+		t.Errorf("expected %d tools, got %d", len(expectedTools), len(result.Tools))
+	}
+
+	toolNames := make(map[string]bool)
+	for _, tool := range result.Tools {
+		toolNames[tool.Name] = true
+	}
+
+	for _, name := range expectedTools {
+		if !toolNames[name] {
+			t.Errorf("missing expected tool: %s", name)
+		}
+	}
+}
+
+func TestMCPPing(t *testing.T) {
+	initMsg := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test"}}}`
+	pingMsg := `{"jsonrpc":"2.0","id":2,"method":"ping","params":{}}`
+
+	responses := runMCPTestMulti(t, initMsg, pingMsg)
+	if len(responses) < 2 {
+		t.Fatalf("expected 2 responses, got %d", len(responses))
+	}
+
+	resp := findResponseByID(responses, "2")
+	if resp == nil {
+		t.Fatal("could not find response with id 2")
+	}
+	if resp.Error != nil {
+		t.Errorf("unexpected error: %v", resp.Error)
+	}
+}
+
+func TestMCPUnknownMethod(t *testing.T) {
+	initMsg := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test"}}}`
+	unknownMsg := `{"jsonrpc":"2.0","id":2,"method":"unknown/method","params":{}}`
+
+	responses := runMCPTestMulti(t, initMsg, unknownMsg)
+	if len(responses) < 2 {
+		t.Fatalf("expected 2 responses, got %d", len(responses))
+	}
+
+	resp := findResponseByID(responses, "2")
+	if resp == nil {
+		t.Fatal("could not find response with id 2")
+	}
+	if resp.Error == nil {
+		t.Fatal("expected error for unknown method")
+	}
+	if resp.Error.Code != jsonrpc.MethodNotFound {
+		t.Errorf("expected MethodNotFound error code, got %d", resp.Error.Code)
+	}
+}
+
+func runMCPTest(t *testing.T, msg string) *jsonrpc.Message {
+	responses := runMCPTestMulti(t, msg)
+	if len(responses) == 0 {
+		t.Fatal("expected at least one response")
+	}
+	return responses[0]
+}
+
+func runMCPTestMulti(t *testing.T, msgs ...string) []*jsonrpc.Message {
+	t.Helper()
+
+	var input bytes.Buffer
+	for _, msg := range msgs {
+		input.WriteString("Content-Length: ")
+		input.WriteString(string(rune('0' + len(msg)/100%10)))
+		input.WriteString(string(rune('0' + len(msg)/10%10)))
+		input.WriteString(string(rune('0' + len(msg)%10)))
+		input.WriteString("\r\n\r\n")
+		input.WriteString(msg)
+	}
+
+	var output bytes.Buffer
+	cfg := &config.Config{}
+	tr := transport.NewStdio(strings.NewReader(input.String()), &output)
+
+	srv, err := New(cfg, tr)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// Run will return when input is exhausted (EOF)
+	// Server waits for in-flight requests before returning
+	srv.Run(context.Background())
+
+	return parseResponses(t, output.String())
+}
+
+func findResponseByID(responses []*jsonrpc.Message, id string) *jsonrpc.Message {
+	for _, r := range responses {
+		if r.ID != nil && r.ID.String() == id {
+			return r
+		}
+	}
+	return nil
+}
+
+func parseResponses(t *testing.T, data string) []*jsonrpc.Message {
+	t.Helper()
+
+	var responses []*jsonrpc.Message
+	remaining := data
+
+	for len(remaining) > 0 {
+		idx := strings.Index(remaining, "\r\n\r\n")
+		if idx == -1 {
+			break
+		}
+
+		header := remaining[:idx]
+		var contentLength int
+		for _, line := range strings.Split(header, "\r\n") {
+			if strings.HasPrefix(strings.ToLower(line), "content-length:") {
+				parts := strings.SplitN(line, ":", 2)
+				if len(parts) == 2 {
+					json.Unmarshal([]byte(strings.TrimSpace(parts[1])), &contentLength)
+				}
+			}
+		}
+
+		if contentLength == 0 {
+			break
+		}
+
+		bodyStart := idx + 4
+		if bodyStart+contentLength > len(remaining) {
+			break
+		}
+
+		body := remaining[bodyStart : bodyStart+contentLength]
+		remaining = remaining[bodyStart+contentLength:]
+
+		var msg jsonrpc.Message
+		if err := json.Unmarshal([]byte(body), &msg); err != nil {
+			t.Logf("failed to parse response: %v (body: %s)", err, body)
+			continue
+		}
+		responses = append(responses, &msg)
+	}
+
+	return responses
+}

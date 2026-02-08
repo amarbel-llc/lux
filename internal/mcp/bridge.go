@@ -1,0 +1,618 @@
+package mcp
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/friedenberg/lux/internal/lsp"
+	"github.com/friedenberg/lux/internal/server"
+	"github.com/friedenberg/lux/internal/subprocess"
+)
+
+type Bridge struct {
+	pool   *subprocess.Pool
+	router *server.Router
+}
+
+func NewBridge(pool *subprocess.Pool, router *server.Router) *Bridge {
+	return &Bridge{
+		pool:   pool,
+		router: router,
+	}
+}
+
+func (b *Bridge) withDocument(ctx context.Context, uri lsp.DocumentURI, fn func(*subprocess.LSPInstance) (json.RawMessage, error)) (json.RawMessage, error) {
+	lspName := b.router.RouteByURI(uri)
+	if lspName == "" {
+		return nil, fmt.Errorf("no LSP configured for %s", uri)
+	}
+
+	content, err := b.readFile(uri)
+	if err != nil {
+		return nil, fmt.Errorf("reading file: %w", err)
+	}
+
+	initParams := b.defaultInitParams(uri)
+	inst, err := b.pool.GetOrStart(ctx, lspName, initParams)
+	if err != nil {
+		return nil, fmt.Errorf("starting LSP %s: %w", lspName, err)
+	}
+
+	langID := b.inferLanguageID(uri)
+
+	if err := inst.Notify(lsp.MethodTextDocumentDidOpen, lsp.DidOpenTextDocumentParams{
+		TextDocument: lsp.TextDocumentItem{
+			URI:        uri,
+			LanguageID: langID,
+			Version:    1,
+			Text:       content,
+		},
+	}); err != nil {
+		return nil, fmt.Errorf("opening document: %w", err)
+	}
+
+	defer func() {
+		inst.Notify(lsp.MethodTextDocumentDidClose, lsp.DidCloseTextDocumentParams{
+			TextDocument: lsp.TextDocumentIdentifier{URI: uri},
+		})
+	}()
+
+	return fn(inst)
+}
+
+func (b *Bridge) Hover(ctx context.Context, uri lsp.DocumentURI, line, character int) (*ToolCallResult, error) {
+	result, err := b.withDocument(ctx, uri, func(inst *subprocess.LSPInstance) (json.RawMessage, error) {
+		return inst.Call(ctx, lsp.MethodTextDocumentHover, lsp.TextDocumentPositionParams{
+			TextDocument: lsp.TextDocumentIdentifier{URI: uri},
+			Position:     lsp.Position{Line: line, Character: character},
+		})
+	})
+	if err != nil {
+		return ErrorResult(err.Error()), nil
+	}
+
+	if result == nil || string(result) == "null" {
+		return &ToolCallResult{
+			Content: []ContentBlock{TextContent("No hover information available")},
+		}, nil
+	}
+
+	var hover struct {
+		Contents json.RawMessage `json:"contents"`
+	}
+	if err := json.Unmarshal(result, &hover); err != nil {
+		return ErrorResult(fmt.Sprintf("parsing hover result: %v", err)), nil
+	}
+
+	text := extractMarkdownContent(hover.Contents)
+	return &ToolCallResult{
+		Content: []ContentBlock{TextContent(text)},
+	}, nil
+}
+
+func (b *Bridge) Definition(ctx context.Context, uri lsp.DocumentURI, line, character int) (*ToolCallResult, error) {
+	result, err := b.withDocument(ctx, uri, func(inst *subprocess.LSPInstance) (json.RawMessage, error) {
+		return inst.Call(ctx, lsp.MethodTextDocumentDefinition, lsp.TextDocumentPositionParams{
+			TextDocument: lsp.TextDocumentIdentifier{URI: uri},
+			Position:     lsp.Position{Line: line, Character: character},
+		})
+	})
+	if err != nil {
+		return ErrorResult(err.Error()), nil
+	}
+
+	locations := parseLocations(result)
+	if len(locations) == 0 {
+		return &ToolCallResult{
+			Content: []ContentBlock{TextContent("No definition found")},
+		}, nil
+	}
+
+	text := formatLocations(locations)
+	return &ToolCallResult{
+		Content: []ContentBlock{TextContent(text)},
+	}, nil
+}
+
+func (b *Bridge) References(ctx context.Context, uri lsp.DocumentURI, line, character int, includeDecl bool) (*ToolCallResult, error) {
+	result, err := b.withDocument(ctx, uri, func(inst *subprocess.LSPInstance) (json.RawMessage, error) {
+		return inst.Call(ctx, lsp.MethodTextDocumentReferences, map[string]any{
+			"textDocument": lsp.TextDocumentIdentifier{URI: uri},
+			"position":     lsp.Position{Line: line, Character: character},
+			"context":      map[string]any{"includeDeclaration": includeDecl},
+		})
+	})
+	if err != nil {
+		return ErrorResult(err.Error()), nil
+	}
+
+	locations := parseLocations(result)
+	if len(locations) == 0 {
+		return &ToolCallResult{
+			Content: []ContentBlock{TextContent("No references found")},
+		}, nil
+	}
+
+	text := formatLocations(locations)
+	return &ToolCallResult{
+		Content: []ContentBlock{TextContent(text)},
+	}, nil
+}
+
+func (b *Bridge) Completion(ctx context.Context, uri lsp.DocumentURI, line, character int) (*ToolCallResult, error) {
+	result, err := b.withDocument(ctx, uri, func(inst *subprocess.LSPInstance) (json.RawMessage, error) {
+		return inst.Call(ctx, lsp.MethodTextDocumentCompletion, lsp.TextDocumentPositionParams{
+			TextDocument: lsp.TextDocumentIdentifier{URI: uri},
+			Position:     lsp.Position{Line: line, Character: character},
+		})
+	})
+	if err != nil {
+		return ErrorResult(err.Error()), nil
+	}
+
+	items := parseCompletionItems(result)
+	if len(items) == 0 {
+		return &ToolCallResult{
+			Content: []ContentBlock{TextContent("No completions available")},
+		}, nil
+	}
+
+	text := formatCompletionItems(items)
+	return &ToolCallResult{
+		Content: []ContentBlock{TextContent(text)},
+	}, nil
+}
+
+func (b *Bridge) Format(ctx context.Context, uri lsp.DocumentURI) (*ToolCallResult, error) {
+	result, err := b.withDocument(ctx, uri, func(inst *subprocess.LSPInstance) (json.RawMessage, error) {
+		return inst.Call(ctx, lsp.MethodTextDocumentFormatting, map[string]any{
+			"textDocument": lsp.TextDocumentIdentifier{URI: uri},
+			"options": map[string]any{
+				"tabSize":      4,
+				"insertSpaces": true,
+			},
+		})
+	})
+	if err != nil {
+		return ErrorResult(err.Error()), nil
+	}
+
+	var edits []lsp.TextEdit
+	if err := json.Unmarshal(result, &edits); err != nil {
+		return ErrorResult(fmt.Sprintf("parsing edits: %v", err)), nil
+	}
+
+	if len(edits) == 0 {
+		return &ToolCallResult{
+			Content: []ContentBlock{TextContent("No formatting changes needed")},
+		}, nil
+	}
+
+	text := formatTextEdits(edits)
+	return &ToolCallResult{
+		Content: []ContentBlock{TextContent(text)},
+	}, nil
+}
+
+func (b *Bridge) DocumentSymbols(ctx context.Context, uri lsp.DocumentURI) (*ToolCallResult, error) {
+	result, err := b.withDocument(ctx, uri, func(inst *subprocess.LSPInstance) (json.RawMessage, error) {
+		return inst.Call(ctx, lsp.MethodTextDocumentDocumentSymbol, map[string]any{
+			"textDocument": lsp.TextDocumentIdentifier{URI: uri},
+		})
+	})
+	if err != nil {
+		return ErrorResult(err.Error()), nil
+	}
+
+	symbols := parseSymbols(result)
+	if len(symbols) == 0 {
+		return &ToolCallResult{
+			Content: []ContentBlock{TextContent("No symbols found")},
+		}, nil
+	}
+
+	text := formatSymbols(symbols, 0)
+	return &ToolCallResult{
+		Content: []ContentBlock{TextContent(text)},
+	}, nil
+}
+
+func (b *Bridge) CodeAction(ctx context.Context, uri lsp.DocumentURI, startLine, startChar, endLine, endChar int) (*ToolCallResult, error) {
+	result, err := b.withDocument(ctx, uri, func(inst *subprocess.LSPInstance) (json.RawMessage, error) {
+		return inst.Call(ctx, lsp.MethodTextDocumentCodeAction, map[string]any{
+			"textDocument": lsp.TextDocumentIdentifier{URI: uri},
+			"range": lsp.Range{
+				Start: lsp.Position{Line: startLine, Character: startChar},
+				End:   lsp.Position{Line: endLine, Character: endChar},
+			},
+			"context": map[string]any{
+				"diagnostics": []any{},
+			},
+		})
+	})
+	if err != nil {
+		return ErrorResult(err.Error()), nil
+	}
+
+	actions := parseCodeActions(result)
+	if len(actions) == 0 {
+		return &ToolCallResult{
+			Content: []ContentBlock{TextContent("No code actions available")},
+		}, nil
+	}
+
+	text := formatCodeActions(actions)
+	return &ToolCallResult{
+		Content: []ContentBlock{TextContent(text)},
+	}, nil
+}
+
+func (b *Bridge) Rename(ctx context.Context, uri lsp.DocumentURI, line, character int, newName string) (*ToolCallResult, error) {
+	result, err := b.withDocument(ctx, uri, func(inst *subprocess.LSPInstance) (json.RawMessage, error) {
+		return inst.Call(ctx, lsp.MethodTextDocumentRename, map[string]any{
+			"textDocument": lsp.TextDocumentIdentifier{URI: uri},
+			"position":     lsp.Position{Line: line, Character: character},
+			"newName":      newName,
+		})
+	})
+	if err != nil {
+		return ErrorResult(err.Error()), nil
+	}
+
+	var edit WorkspaceEdit
+	if err := json.Unmarshal(result, &edit); err != nil {
+		return ErrorResult(fmt.Sprintf("parsing workspace edit: %v", err)), nil
+	}
+
+	text := formatWorkspaceEdit(edit)
+	return &ToolCallResult{
+		Content: []ContentBlock{TextContent(text)},
+	}, nil
+}
+
+func (b *Bridge) readFile(uri lsp.DocumentURI) (string, error) {
+	path := uri.Path()
+	if path == "" {
+		return "", fmt.Errorf("invalid URI: %s", uri)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}
+
+func (b *Bridge) defaultInitParams(uri lsp.DocumentURI) *lsp.InitializeParams {
+	path := uri.Path()
+	rootPath := filepath.Dir(path)
+	rootURI := lsp.URIFromPath(rootPath)
+
+	pid := os.Getpid()
+	return &lsp.InitializeParams{
+		ProcessID: &pid,
+		RootURI:   &rootURI,
+		RootPath:  &rootPath,
+		ClientInfo: &lsp.ClientInfo{
+			Name:    "lux-mcp",
+			Version: "0.1.0",
+		},
+		Capabilities: lsp.ClientCapabilities{
+			TextDocument: &lsp.TextDocumentClientCapabilities{
+				Hover:          &lsp.HoverClientCaps{},
+				Definition:     &lsp.DefinitionClientCaps{},
+				References:     &lsp.ReferencesClientCaps{},
+				Completion:     &lsp.CompletionClientCaps{},
+				DocumentSymbol: &lsp.DocumentSymbolClientCaps{},
+				CodeAction:     &lsp.CodeActionClientCaps{},
+				Formatting:     &lsp.FormattingClientCaps{},
+				Rename:         &lsp.RenameClientCaps{},
+			},
+		},
+	}
+}
+
+func (b *Bridge) inferLanguageID(uri lsp.DocumentURI) string {
+	ext := uri.Extension()
+	switch ext {
+	case ".go":
+		return "go"
+	case ".py":
+		return "python"
+	case ".js":
+		return "javascript"
+	case ".ts":
+		return "typescript"
+	case ".tsx":
+		return "typescriptreact"
+	case ".jsx":
+		return "javascriptreact"
+	case ".rs":
+		return "rust"
+	case ".nix":
+		return "nix"
+	case ".c":
+		return "c"
+	case ".cpp", ".cc", ".cxx":
+		return "cpp"
+	case ".h", ".hpp":
+		return "cpp"
+	case ".java":
+		return "java"
+	case ".rb":
+		return "ruby"
+	case ".php":
+		return "php"
+	case ".cs":
+		return "csharp"
+	case ".swift":
+		return "swift"
+	case ".kt":
+		return "kotlin"
+	case ".scala":
+		return "scala"
+	case ".lua":
+		return "lua"
+	case ".sh", ".bash":
+		return "shellscript"
+	case ".json":
+		return "json"
+	case ".yaml", ".yml":
+		return "yaml"
+	case ".toml":
+		return "toml"
+	case ".xml":
+		return "xml"
+	case ".html":
+		return "html"
+	case ".css":
+		return "css"
+	case ".md":
+		return "markdown"
+	default:
+		return "plaintext"
+	}
+}
+
+// Helper types and functions
+
+type WorkspaceEdit struct {
+	Changes         map[string][]lsp.TextEdit `json:"changes,omitempty"`
+	DocumentChanges json.RawMessage           `json:"documentChanges,omitempty"`
+}
+
+type CompletionItem struct {
+	Label      string `json:"label"`
+	Kind       int    `json:"kind,omitempty"`
+	Detail     string `json:"detail,omitempty"`
+	InsertText string `json:"insertText,omitempty"`
+}
+
+type Symbol struct {
+	Name     string        `json:"name"`
+	Kind     int           `json:"kind"`
+	Range    lsp.Range     `json:"range,omitempty"`
+	Location *lsp.Location `json:"location,omitempty"`
+	Children []Symbol      `json:"children,omitempty"`
+}
+
+type CodeAction struct {
+	Title       string `json:"title"`
+	Kind        string `json:"kind,omitempty"`
+	IsPreferred bool   `json:"isPreferred,omitempty"`
+}
+
+func extractMarkdownContent(raw json.RawMessage) string {
+	var str string
+	if err := json.Unmarshal(raw, &str); err == nil {
+		return str
+	}
+
+	var markupContent struct {
+		Kind  string `json:"kind"`
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal(raw, &markupContent); err == nil {
+		return markupContent.Value
+	}
+
+	var contents []json.RawMessage
+	if err := json.Unmarshal(raw, &contents); err == nil && len(contents) > 0 {
+		var parts []string
+		for _, c := range contents {
+			parts = append(parts, extractMarkdownContent(c))
+		}
+		return strings.Join(parts, "\n\n")
+	}
+
+	return string(raw)
+}
+
+func parseLocations(raw json.RawMessage) []lsp.Location {
+	if raw == nil || string(raw) == "null" {
+		return nil
+	}
+
+	var single lsp.Location
+	if err := json.Unmarshal(raw, &single); err == nil && single.URI != "" {
+		return []lsp.Location{single}
+	}
+
+	var multiple []lsp.Location
+	if err := json.Unmarshal(raw, &multiple); err == nil {
+		return multiple
+	}
+
+	return nil
+}
+
+func formatLocations(locs []lsp.Location) string {
+	var sb strings.Builder
+	for i, loc := range locs {
+		if i > 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(fmt.Sprintf("%s:%d:%d",
+			loc.URI.Path(),
+			loc.Range.Start.Line+1,
+			loc.Range.Start.Character+1))
+	}
+	return sb.String()
+}
+
+func parseCompletionItems(raw json.RawMessage) []CompletionItem {
+	if raw == nil || string(raw) == "null" {
+		return nil
+	}
+
+	var items []CompletionItem
+	if err := json.Unmarshal(raw, &items); err == nil {
+		return items
+	}
+
+	var list struct {
+		Items []CompletionItem `json:"items"`
+	}
+	if err := json.Unmarshal(raw, &list); err == nil {
+		return list.Items
+	}
+
+	return nil
+}
+
+func formatCompletionItems(items []CompletionItem) string {
+	var sb strings.Builder
+	for i, item := range items {
+		if i >= 20 {
+			sb.WriteString(fmt.Sprintf("\n... and %d more", len(items)-20))
+			break
+		}
+		if i > 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(item.Label)
+		if item.Detail != "" {
+			sb.WriteString(" - ")
+			sb.WriteString(item.Detail)
+		}
+	}
+	return sb.String()
+}
+
+func parseSymbols(raw json.RawMessage) []Symbol {
+	if raw == nil || string(raw) == "null" {
+		return nil
+	}
+
+	var symbols []Symbol
+	if err := json.Unmarshal(raw, &symbols); err == nil {
+		return symbols
+	}
+
+	return nil
+}
+
+func formatSymbols(symbols []Symbol, indent int) string {
+	var sb strings.Builder
+	prefix := strings.Repeat("  ", indent)
+	for i, sym := range symbols {
+		if i > 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(prefix)
+		sb.WriteString(symbolKindName(sym.Kind))
+		sb.WriteString(" ")
+		sb.WriteString(sym.Name)
+		if len(sym.Children) > 0 {
+			sb.WriteString("\n")
+			sb.WriteString(formatSymbols(sym.Children, indent+1))
+		}
+	}
+	return sb.String()
+}
+
+func symbolKindName(kind int) string {
+	kinds := map[int]string{
+		1: "File", 2: "Module", 3: "Namespace", 4: "Package", 5: "Class",
+		6: "Method", 7: "Property", 8: "Field", 9: "Constructor", 10: "Enum",
+		11: "Interface", 12: "Function", 13: "Variable", 14: "Constant", 15: "String",
+		16: "Number", 17: "Boolean", 18: "Array", 19: "Object", 20: "Key",
+		21: "Null", 22: "EnumMember", 23: "Struct", 24: "Event", 25: "Operator",
+		26: "TypeParameter",
+	}
+	if name, ok := kinds[kind]; ok {
+		return name
+	}
+	return "Symbol"
+}
+
+func parseCodeActions(raw json.RawMessage) []CodeAction {
+	if raw == nil || string(raw) == "null" {
+		return nil
+	}
+
+	var actions []CodeAction
+	if err := json.Unmarshal(raw, &actions); err == nil {
+		return actions
+	}
+
+	return nil
+}
+
+func formatCodeActions(actions []CodeAction) string {
+	var sb strings.Builder
+	for i, action := range actions {
+		if i > 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString("- ")
+		sb.WriteString(action.Title)
+		if action.Kind != "" {
+			sb.WriteString(" (")
+			sb.WriteString(action.Kind)
+			sb.WriteString(")")
+		}
+	}
+	return sb.String()
+}
+
+func formatTextEdits(edits []lsp.TextEdit) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("%d edit(s) to apply:\n", len(edits)))
+	for i, edit := range edits {
+		if i >= 10 {
+			sb.WriteString(fmt.Sprintf("... and %d more", len(edits)-10))
+			break
+		}
+		sb.WriteString(fmt.Sprintf("- Line %d-%d: replace with %q\n",
+			edit.Range.Start.Line+1,
+			edit.Range.End.Line+1,
+			truncate(edit.NewText, 50)))
+	}
+	return sb.String()
+}
+
+func formatWorkspaceEdit(edit WorkspaceEdit) string {
+	var sb strings.Builder
+	total := 0
+	for uri, edits := range edit.Changes {
+		total += len(edits)
+		sb.WriteString(fmt.Sprintf("%s: %d edit(s)\n", uri, len(edits)))
+	}
+	if total == 0 {
+		return "No changes to apply"
+	}
+	sb.WriteString(fmt.Sprintf("\nTotal: %d edit(s)", total))
+	return sb.String()
+}
+
+func truncate(s string, max int) string {
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	if len(s) <= max {
+		return s
+	}
+	return s[:max-3] + "..."
+}
