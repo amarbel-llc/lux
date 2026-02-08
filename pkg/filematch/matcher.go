@@ -8,9 +8,9 @@ import (
 )
 
 type Matcher struct {
-	extensions   map[string]bool
-	patterns     []glob.Glob
-	languageIDs  map[string]bool
+	extensions  map[string]bool
+	patterns    []glob.Glob
+	languageIDs map[string]bool
 }
 
 func New(extensions, patterns, languageIDs []string) (*Matcher, error) {

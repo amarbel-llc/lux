@@ -179,18 +179,18 @@ func defaultCapabilities() lsp.ServerCapabilities {
 		CompletionProvider: &lsp.CompletionOptions{
 			TriggerCharacters: []string{"."},
 		},
-		DefinitionProvider:     true,
-		TypeDefinitionProvider: true,
-		ImplementationProvider: true,
-		ReferencesProvider:     true,
-		DocumentSymbolProvider: true,
-		CodeActionProvider:     true,
+		DefinitionProvider:              true,
+		TypeDefinitionProvider:          true,
+		ImplementationProvider:          true,
+		ReferencesProvider:              true,
+		DocumentSymbolProvider:          true,
+		CodeActionProvider:              true,
 		DocumentFormattingProvider:      true,
 		DocumentRangeFormattingProvider: true,
-		RenameProvider:         true,
-		FoldingRangeProvider:   true,
-		SelectionRangeProvider: true,
-		WorkspaceSymbolProvider: true,
+		RenameProvider:                  true,
+		FoldingRangeProvider:            true,
+		SelectionRangeProvider:          true,
+		WorkspaceSymbolProvider:         true,
 	}
 }
 

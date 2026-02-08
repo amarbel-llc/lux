@@ -60,6 +60,10 @@ mcp-http addr=":8081":
 dev:
     nix develop
 
+# Install MCP server to Claude Code config
+install:
+    nix run .#install-mcp
+
 # Clean build artifacts
 clean:
     rm -f lux

@@ -9,7 +9,9 @@ import (
 	"github.com/friedenberg/lux/internal/capabilities"
 	"github.com/friedenberg/lux/internal/config"
 	"github.com/friedenberg/lux/internal/control"
+	"github.com/friedenberg/lux/internal/mcp"
 	"github.com/friedenberg/lux/internal/server"
+	"github.com/friedenberg/lux/internal/transport"
 )
 
 var rootCmd = &cobra.Command{
@@ -141,6 +143,92 @@ var stopCmd = &cobra.Command{
 	},
 }
 
+var mcpCmd = &cobra.Command{
+	Use:   "mcp",
+	Short: "Run as MCP server",
+	Long:  `Run Lux as an MCP server, exposing LSP capabilities as MCP tools.`,
+}
+
+var mcpStdioCmd = &cobra.Command{
+	Use:   "stdio",
+	Short: "MCP over stdio",
+	Long:  `Run MCP server reading from stdin and writing to stdout.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return fmt.Errorf("loading config: %w", err)
+		}
+
+		t := transport.NewStdio(os.Stdin, os.Stdout)
+		srv, err := mcp.New(cfg, t)
+		if err != nil {
+			return fmt.Errorf("creating MCP server: %w", err)
+		}
+
+		return srv.Run(cmd.Context())
+	},
+}
+
+var mcpSSEAddr string
+
+var mcpSSECmd = &cobra.Command{
+	Use:   "sse",
+	Short: "MCP over SSE",
+	Long:  `Run MCP server using Server-Sent Events over HTTP.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return fmt.Errorf("loading config: %w", err)
+		}
+
+		t := transport.NewSSE(mcpSSEAddr)
+		srv, err := mcp.New(cfg, t)
+		if err != nil {
+			return fmt.Errorf("creating MCP server: %w", err)
+		}
+
+		// Start HTTP server in background
+		go func() {
+			if err := t.Start(cmd.Context()); err != nil {
+				fmt.Fprintf(os.Stderr, "SSE server error: %v\n", err)
+			}
+		}()
+
+		fmt.Fprintf(os.Stderr, "MCP SSE server listening on %s\n", mcpSSEAddr)
+		return srv.Run(cmd.Context())
+	},
+}
+
+var mcpHTTPAddr string
+
+var mcpHTTPCmd = &cobra.Command{
+	Use:   "http",
+	Short: "MCP over streamable HTTP",
+	Long:  `Run MCP server using streamable HTTP transport.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return fmt.Errorf("loading config: %w", err)
+		}
+
+		t := transport.NewStreamableHTTP(mcpHTTPAddr)
+		srv, err := mcp.New(cfg, t)
+		if err != nil {
+			return fmt.Errorf("creating MCP server: %w", err)
+		}
+
+		// Start HTTP server in background
+		go func() {
+			if err := t.Start(cmd.Context()); err != nil {
+				fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
+			}
+		}()
+
+		fmt.Fprintf(os.Stderr, "MCP HTTP server listening on %s\n", mcpHTTPAddr)
+		return srv.Run(cmd.Context())
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(addCmd)
@@ -148,6 +236,16 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(stopCmd)
+
+	mcpCmd.AddCommand(mcpStdioCmd)
+
+	mcpSSECmd.Flags().StringVarP(&mcpSSEAddr, "addr", "a", ":8080", "Address to listen on")
+	mcpCmd.AddCommand(mcpSSECmd)
+
+	mcpHTTPCmd.Flags().StringVarP(&mcpHTTPAddr, "addr", "a", ":8081", "Address to listen on")
+	mcpCmd.AddCommand(mcpHTTPCmd)
+
+	rootCmd.AddCommand(mcpCmd)
 }
 
 func main() {

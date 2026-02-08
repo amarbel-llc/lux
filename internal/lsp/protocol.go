@@ -3,50 +3,50 @@ package lsp
 import "encoding/json"
 
 const (
-	MethodInitialize     = "initialize"
-	MethodInitialized    = "initialized"
-	MethodShutdown       = "shutdown"
-	MethodExit           = "exit"
-	MethodCancelRequest  = "$/cancelRequest"
-	MethodSetTrace       = "$/setTrace"
-	MethodLogTrace       = "$/logTrace"
+	MethodInitialize    = "initialize"
+	MethodInitialized   = "initialized"
+	MethodShutdown      = "shutdown"
+	MethodExit          = "exit"
+	MethodCancelRequest = "$/cancelRequest"
+	MethodSetTrace      = "$/setTrace"
+	MethodLogTrace      = "$/logTrace"
 
-	MethodTextDocumentDidOpen           = "textDocument/didOpen"
-	MethodTextDocumentDidChange         = "textDocument/didChange"
-	MethodTextDocumentDidClose          = "textDocument/didClose"
-	MethodTextDocumentDidSave           = "textDocument/didSave"
-	MethodTextDocumentWillSave          = "textDocument/willSave"
-	MethodTextDocumentWillSaveWaitUntil = "textDocument/willSaveWaitUntil"
-	MethodTextDocumentCompletion        = "textDocument/completion"
-	MethodTextDocumentHover             = "textDocument/hover"
-	MethodTextDocumentSignatureHelp     = "textDocument/signatureHelp"
-	MethodTextDocumentDefinition        = "textDocument/definition"
-	MethodTextDocumentTypeDefinition    = "textDocument/typeDefinition"
-	MethodTextDocumentImplementation    = "textDocument/implementation"
-	MethodTextDocumentReferences        = "textDocument/references"
-	MethodTextDocumentDocumentHighlight = "textDocument/documentHighlight"
-	MethodTextDocumentDocumentSymbol    = "textDocument/documentSymbol"
-	MethodTextDocumentCodeAction        = "textDocument/codeAction"
-	MethodTextDocumentCodeLens          = "textDocument/codeLens"
-	MethodTextDocumentFormatting        = "textDocument/formatting"
-	MethodTextDocumentRangeFormatting   = "textDocument/rangeFormatting"
-	MethodTextDocumentOnTypeFormatting  = "textDocument/onTypeFormatting"
-	MethodTextDocumentRename            = "textDocument/rename"
-	MethodTextDocumentPrepareRename     = "textDocument/prepareRename"
-	MethodTextDocumentFoldingRange      = "textDocument/foldingRange"
-	MethodTextDocumentSelectionRange    = "textDocument/selectionRange"
-	MethodTextDocumentDocumentLink      = "textDocument/documentLink"
-	MethodTextDocumentDocumentColor     = "textDocument/documentColor"
-	MethodTextDocumentColorPresentation = "textDocument/colorPresentation"
+	MethodTextDocumentDidOpen             = "textDocument/didOpen"
+	MethodTextDocumentDidChange           = "textDocument/didChange"
+	MethodTextDocumentDidClose            = "textDocument/didClose"
+	MethodTextDocumentDidSave             = "textDocument/didSave"
+	MethodTextDocumentWillSave            = "textDocument/willSave"
+	MethodTextDocumentWillSaveWaitUntil   = "textDocument/willSaveWaitUntil"
+	MethodTextDocumentCompletion          = "textDocument/completion"
+	MethodTextDocumentHover               = "textDocument/hover"
+	MethodTextDocumentSignatureHelp       = "textDocument/signatureHelp"
+	MethodTextDocumentDefinition          = "textDocument/definition"
+	MethodTextDocumentTypeDefinition      = "textDocument/typeDefinition"
+	MethodTextDocumentImplementation      = "textDocument/implementation"
+	MethodTextDocumentReferences          = "textDocument/references"
+	MethodTextDocumentDocumentHighlight   = "textDocument/documentHighlight"
+	MethodTextDocumentDocumentSymbol      = "textDocument/documentSymbol"
+	MethodTextDocumentCodeAction          = "textDocument/codeAction"
+	MethodTextDocumentCodeLens            = "textDocument/codeLens"
+	MethodTextDocumentFormatting          = "textDocument/formatting"
+	MethodTextDocumentRangeFormatting     = "textDocument/rangeFormatting"
+	MethodTextDocumentOnTypeFormatting    = "textDocument/onTypeFormatting"
+	MethodTextDocumentRename              = "textDocument/rename"
+	MethodTextDocumentPrepareRename       = "textDocument/prepareRename"
+	MethodTextDocumentFoldingRange        = "textDocument/foldingRange"
+	MethodTextDocumentSelectionRange      = "textDocument/selectionRange"
+	MethodTextDocumentDocumentLink        = "textDocument/documentLink"
+	MethodTextDocumentDocumentColor       = "textDocument/documentColor"
+	MethodTextDocumentColorPresentation   = "textDocument/colorPresentation"
 	MethodTextDocumentSemanticTokensFull  = "textDocument/semanticTokens/full"
 	MethodTextDocumentSemanticTokensDelta = "textDocument/semanticTokens/full/delta"
 	MethodTextDocumentSemanticTokensRange = "textDocument/semanticTokens/range"
 	MethodTextDocumentInlayHint           = "textDocument/inlayHint"
 	MethodTextDocumentDiagnostic          = "textDocument/diagnostic"
 
-	MethodWorkspaceSymbol              = "workspace/symbol"
-	MethodWorkspaceExecuteCommand      = "workspace/executeCommand"
-	MethodWorkspaceApplyEdit           = "workspace/applyEdit"
+	MethodWorkspaceSymbol                 = "workspace/symbol"
+	MethodWorkspaceExecuteCommand         = "workspace/executeCommand"
+	MethodWorkspaceApplyEdit              = "workspace/applyEdit"
 	MethodWorkspaceDidChangeConfiguration = "workspace/didChangeConfiguration"
 	MethodWorkspaceDidChangeWatchedFiles  = "workspace/didChangeWatchedFiles"
 	MethodWorkspaceDidChangeFolders       = "workspace/didChangeWorkspaceFolders"
@@ -54,10 +54,10 @@ const (
 	MethodWorkspaceWorkspaceFolders       = "workspace/workspaceFolders"
 	MethodWorkspaceDiagnostic             = "workspace/diagnostic"
 
-	MethodWindowShowMessage        = "window/showMessage"
-	MethodWindowShowMessageRequest = "window/showMessageRequest"
-	MethodWindowLogMessage         = "window/logMessage"
-	MethodWindowShowDocument       = "window/showDocument"
+	MethodWindowShowMessage            = "window/showMessage"
+	MethodWindowShowMessageRequest     = "window/showMessageRequest"
+	MethodWindowLogMessage             = "window/logMessage"
+	MethodWindowShowDocument           = "window/showDocument"
 	MethodWindowWorkDoneProgressCreate = "window/workDoneProgress/create"
 
 	MethodClientRegisterCapability   = "client/registerCapability"
@@ -92,15 +92,15 @@ type ClientCapabilities struct {
 }
 
 type WorkspaceClientCapabilities struct {
-	ApplyEdit              bool                          `json:"applyEdit,omitempty"`
-	WorkspaceEdit          *WorkspaceEditClientCaps      `json:"workspaceEdit,omitempty"`
-	DidChangeConfiguration *DidChangeConfigurationCaps   `json:"didChangeConfiguration,omitempty"`
-	DidChangeWatchedFiles  *DidChangeWatchedFilesCaps    `json:"didChangeWatchedFiles,omitempty"`
-	Symbol                 *WorkspaceSymbolClientCaps    `json:"symbol,omitempty"`
-	ExecuteCommand         *ExecuteCommandClientCaps     `json:"executeCommand,omitempty"`
-	WorkspaceFolders       bool                          `json:"workspaceFolders,omitempty"`
-	Configuration          bool                          `json:"configuration,omitempty"`
-	SemanticTokens         *SemanticTokensWorkspaceCaps  `json:"semanticTokens,omitempty"`
+	ApplyEdit              bool                         `json:"applyEdit,omitempty"`
+	WorkspaceEdit          *WorkspaceEditClientCaps     `json:"workspaceEdit,omitempty"`
+	DidChangeConfiguration *DidChangeConfigurationCaps  `json:"didChangeConfiguration,omitempty"`
+	DidChangeWatchedFiles  *DidChangeWatchedFilesCaps   `json:"didChangeWatchedFiles,omitempty"`
+	Symbol                 *WorkspaceSymbolClientCaps   `json:"symbol,omitempty"`
+	ExecuteCommand         *ExecuteCommandClientCaps    `json:"executeCommand,omitempty"`
+	WorkspaceFolders       bool                         `json:"workspaceFolders,omitempty"`
+	Configuration          bool                         `json:"configuration,omitempty"`
+	SemanticTokens         *SemanticTokensWorkspaceCaps `json:"semanticTokens,omitempty"`
 }
 
 type WorkspaceEditClientCaps struct {
@@ -128,27 +128,27 @@ type SemanticTokensWorkspaceCaps struct {
 }
 
 type TextDocumentClientCapabilities struct {
-	Synchronization    *TextDocumentSyncClientCaps    `json:"synchronization,omitempty"`
-	Completion         *CompletionClientCaps          `json:"completion,omitempty"`
-	Hover              *HoverClientCaps               `json:"hover,omitempty"`
-	SignatureHelp      *SignatureHelpClientCaps       `json:"signatureHelp,omitempty"`
-	Definition         *DefinitionClientCaps          `json:"definition,omitempty"`
-	TypeDefinition     *TypeDefinitionClientCaps      `json:"typeDefinition,omitempty"`
-	Implementation     *ImplementationClientCaps      `json:"implementation,omitempty"`
-	References         *ReferencesClientCaps          `json:"references,omitempty"`
-	DocumentHighlight  *DocumentHighlightClientCaps   `json:"documentHighlight,omitempty"`
-	DocumentSymbol     *DocumentSymbolClientCaps      `json:"documentSymbol,omitempty"`
-	CodeAction         *CodeActionClientCaps          `json:"codeAction,omitempty"`
-	CodeLens           *CodeLensClientCaps            `json:"codeLens,omitempty"`
-	Formatting         *FormattingClientCaps          `json:"formatting,omitempty"`
-	RangeFormatting    *RangeFormattingClientCaps     `json:"rangeFormatting,omitempty"`
-	OnTypeFormatting   *OnTypeFormattingClientCaps    `json:"onTypeFormatting,omitempty"`
-	Rename             *RenameClientCaps              `json:"rename,omitempty"`
-	FoldingRange       *FoldingRangeClientCaps        `json:"foldingRange,omitempty"`
-	SelectionRange     *SelectionRangeClientCaps      `json:"selectionRange,omitempty"`
-	PublishDiagnostics *PublishDiagnosticsClientCaps  `json:"publishDiagnostics,omitempty"`
-	SemanticTokens     *SemanticTokensClientCaps      `json:"semanticTokens,omitempty"`
-	InlayHint          *InlayHintClientCaps           `json:"inlayHint,omitempty"`
+	Synchronization    *TextDocumentSyncClientCaps   `json:"synchronization,omitempty"`
+	Completion         *CompletionClientCaps         `json:"completion,omitempty"`
+	Hover              *HoverClientCaps              `json:"hover,omitempty"`
+	SignatureHelp      *SignatureHelpClientCaps      `json:"signatureHelp,omitempty"`
+	Definition         *DefinitionClientCaps         `json:"definition,omitempty"`
+	TypeDefinition     *TypeDefinitionClientCaps     `json:"typeDefinition,omitempty"`
+	Implementation     *ImplementationClientCaps     `json:"implementation,omitempty"`
+	References         *ReferencesClientCaps         `json:"references,omitempty"`
+	DocumentHighlight  *DocumentHighlightClientCaps  `json:"documentHighlight,omitempty"`
+	DocumentSymbol     *DocumentSymbolClientCaps     `json:"documentSymbol,omitempty"`
+	CodeAction         *CodeActionClientCaps         `json:"codeAction,omitempty"`
+	CodeLens           *CodeLensClientCaps           `json:"codeLens,omitempty"`
+	Formatting         *FormattingClientCaps         `json:"formatting,omitempty"`
+	RangeFormatting    *RangeFormattingClientCaps    `json:"rangeFormatting,omitempty"`
+	OnTypeFormatting   *OnTypeFormattingClientCaps   `json:"onTypeFormatting,omitempty"`
+	Rename             *RenameClientCaps             `json:"rename,omitempty"`
+	FoldingRange       *FoldingRangeClientCaps       `json:"foldingRange,omitempty"`
+	SelectionRange     *SelectionRangeClientCaps     `json:"selectionRange,omitempty"`
+	PublishDiagnostics *PublishDiagnosticsClientCaps `json:"publishDiagnostics,omitempty"`
+	SemanticTokens     *SemanticTokensClientCaps     `json:"semanticTokens,omitempty"`
+	InlayHint          *InlayHintClientCaps          `json:"inlayHint,omitempty"`
 }
 
 type TextDocumentSyncClientCaps struct {
@@ -240,7 +240,7 @@ type InlayHintClientCaps struct {
 }
 
 type WindowClientCapabilities struct {
-	WorkDoneProgress bool `json:"workDoneProgress,omitempty"`
+	WorkDoneProgress bool                          `json:"workDoneProgress,omitempty"`
 	ShowMessage      *ShowMessageRequestClientCaps `json:"showMessage,omitempty"`
 	ShowDocument     *ShowDocumentClientCaps       `json:"showDocument,omitempty"`
 }
@@ -274,8 +274,8 @@ type RegularExpressionsCaps struct {
 }
 
 type MarkdownClientCaps struct {
-	Parser  string   `json:"parser,omitempty"`
-	Version string   `json:"version,omitempty"`
+	Parser      string   `json:"parser,omitempty"`
+	Version     string   `json:"version,omitempty"`
 	AllowedTags []string `json:"allowedTags,omitempty"`
 }
 
@@ -295,41 +295,41 @@ type ServerInfo struct {
 }
 
 type ServerCapabilities struct {
-	TextDocumentSync                 any                         `json:"textDocumentSync,omitempty"`
-	CompletionProvider               *CompletionOptions          `json:"completionProvider,omitempty"`
-	HoverProvider                    any                         `json:"hoverProvider,omitempty"`
-	SignatureHelpProvider            *SignatureHelpOptions       `json:"signatureHelpProvider,omitempty"`
-	DeclarationProvider              any                         `json:"declarationProvider,omitempty"`
-	DefinitionProvider               any                         `json:"definitionProvider,omitempty"`
-	TypeDefinitionProvider           any                         `json:"typeDefinitionProvider,omitempty"`
-	ImplementationProvider           any                         `json:"implementationProvider,omitempty"`
-	ReferencesProvider               any                         `json:"referencesProvider,omitempty"`
-	DocumentHighlightProvider        any                         `json:"documentHighlightProvider,omitempty"`
-	DocumentSymbolProvider           any                         `json:"documentSymbolProvider,omitempty"`
-	CodeActionProvider               any                         `json:"codeActionProvider,omitempty"`
-	CodeLensProvider                 *CodeLensOptions            `json:"codeLensProvider,omitempty"`
-	DocumentLinkProvider             *DocumentLinkOptions        `json:"documentLinkProvider,omitempty"`
-	ColorProvider                    any                         `json:"colorProvider,omitempty"`
-	DocumentFormattingProvider       any                         `json:"documentFormattingProvider,omitempty"`
-	DocumentRangeFormattingProvider  any                         `json:"documentRangeFormattingProvider,omitempty"`
+	TextDocumentSync                 any                              `json:"textDocumentSync,omitempty"`
+	CompletionProvider               *CompletionOptions               `json:"completionProvider,omitempty"`
+	HoverProvider                    any                              `json:"hoverProvider,omitempty"`
+	SignatureHelpProvider            *SignatureHelpOptions            `json:"signatureHelpProvider,omitempty"`
+	DeclarationProvider              any                              `json:"declarationProvider,omitempty"`
+	DefinitionProvider               any                              `json:"definitionProvider,omitempty"`
+	TypeDefinitionProvider           any                              `json:"typeDefinitionProvider,omitempty"`
+	ImplementationProvider           any                              `json:"implementationProvider,omitempty"`
+	ReferencesProvider               any                              `json:"referencesProvider,omitempty"`
+	DocumentHighlightProvider        any                              `json:"documentHighlightProvider,omitempty"`
+	DocumentSymbolProvider           any                              `json:"documentSymbolProvider,omitempty"`
+	CodeActionProvider               any                              `json:"codeActionProvider,omitempty"`
+	CodeLensProvider                 *CodeLensOptions                 `json:"codeLensProvider,omitempty"`
+	DocumentLinkProvider             *DocumentLinkOptions             `json:"documentLinkProvider,omitempty"`
+	ColorProvider                    any                              `json:"colorProvider,omitempty"`
+	DocumentFormattingProvider       any                              `json:"documentFormattingProvider,omitempty"`
+	DocumentRangeFormattingProvider  any                              `json:"documentRangeFormattingProvider,omitempty"`
 	DocumentOnTypeFormattingProvider *DocumentOnTypeFormattingOptions `json:"documentOnTypeFormattingProvider,omitempty"`
-	RenameProvider                   any                         `json:"renameProvider,omitempty"`
-	FoldingRangeProvider             any                         `json:"foldingRangeProvider,omitempty"`
-	ExecuteCommandProvider           *ExecuteCommandOptions      `json:"executeCommandProvider,omitempty"`
-	SelectionRangeProvider           any                         `json:"selectionRangeProvider,omitempty"`
-	WorkspaceSymbolProvider          any                         `json:"workspaceSymbolProvider,omitempty"`
-	Workspace                        *ServerWorkspaceCaps        `json:"workspace,omitempty"`
-	SemanticTokensProvider           any                         `json:"semanticTokensProvider,omitempty"`
-	MonikerProvider                  any                         `json:"monikerProvider,omitempty"`
-	InlayHintProvider                any                         `json:"inlayHintProvider,omitempty"`
-	DiagnosticProvider               any                         `json:"diagnosticProvider,omitempty"`
-	Experimental                     json.RawMessage             `json:"experimental,omitempty"`
+	RenameProvider                   any                              `json:"renameProvider,omitempty"`
+	FoldingRangeProvider             any                              `json:"foldingRangeProvider,omitempty"`
+	ExecuteCommandProvider           *ExecuteCommandOptions           `json:"executeCommandProvider,omitempty"`
+	SelectionRangeProvider           any                              `json:"selectionRangeProvider,omitempty"`
+	WorkspaceSymbolProvider          any                              `json:"workspaceSymbolProvider,omitempty"`
+	Workspace                        *ServerWorkspaceCaps             `json:"workspace,omitempty"`
+	SemanticTokensProvider           any                              `json:"semanticTokensProvider,omitempty"`
+	MonikerProvider                  any                              `json:"monikerProvider,omitempty"`
+	InlayHintProvider                any                              `json:"inlayHintProvider,omitempty"`
+	DiagnosticProvider               any                              `json:"diagnosticProvider,omitempty"`
+	Experimental                     json.RawMessage                  `json:"experimental,omitempty"`
 }
 
 type CompletionOptions struct {
-	TriggerCharacters   []string `json:"triggerCharacters,omitempty"`
-	ResolveProvider     bool     `json:"resolveProvider,omitempty"`
-	WorkDoneProgress    bool     `json:"workDoneProgress,omitempty"`
+	TriggerCharacters []string `json:"triggerCharacters,omitempty"`
+	ResolveProvider   bool     `json:"resolveProvider,omitempty"`
+	WorkDoneProgress  bool     `json:"workDoneProgress,omitempty"`
 }
 
 type SignatureHelpOptions struct {
@@ -387,9 +387,9 @@ type FileOperationFilter struct {
 }
 
 type FileOperationPattern struct {
-	Glob    string                     `json:"glob"`
-	Matches string                     `json:"matches,omitempty"`
-	Options *FileOperationPatternOpts  `json:"options,omitempty"`
+	Glob    string                    `json:"glob"`
+	Matches string                    `json:"matches,omitempty"`
+	Options *FileOperationPatternOpts `json:"options,omitempty"`
 }
 
 type FileOperationPatternOpts struct {
@@ -497,4 +497,9 @@ type CodeDescription struct {
 type DiagnosticRelatedInformation struct {
 	Location Location `json:"location"`
 	Message  string   `json:"message"`
+}
+
+type TextEdit struct {
+	Range   Range  `json:"range"`
+	NewText string `json:"newText"`
 }

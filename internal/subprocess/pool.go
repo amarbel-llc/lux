@@ -52,9 +52,9 @@ type LSPInstance struct {
 	StartedAt    time.Time
 	Error        error
 
-	mu       sync.RWMutex
-	ctx      context.Context
-	cancel   context.CancelFunc
+	mu     sync.RWMutex
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 type Pool struct {
