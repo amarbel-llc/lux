@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 
@@ -229,6 +230,33 @@ var mcpHTTPCmd = &cobra.Command{
 	},
 }
 
+var mcpInstallClaudeCmd = &cobra.Command{
+	Use:   "install-claude",
+	Short: "Install lux as MCP server in Claude Code",
+	Long:  `Register lux as an MCP server using the claude CLI.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		luxPath, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("getting executable path: %w", err)
+		}
+
+		claudeCmd := exec.CommandContext(
+			cmd.Context(),
+			"claude", "mcp", "add", "lux",
+			"--", luxPath, "mcp", "stdio",
+		)
+		claudeCmd.Stdout = os.Stdout
+		claudeCmd.Stderr = os.Stderr
+		claudeCmd.Stdin = os.Stdin
+
+		if err := claudeCmd.Run(); err != nil {
+			return fmt.Errorf("running claude mcp add: %w", err)
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(addCmd)
@@ -244,6 +272,8 @@ func init() {
 
 	mcpHTTPCmd.Flags().StringVarP(&mcpHTTPAddr, "addr", "a", ":8081", "Address to listen on")
 	mcpCmd.AddCommand(mcpHTTPCmd)
+
+	mcpCmd.AddCommand(mcpInstallClaudeCmd)
 
 	rootCmd.AddCommand(mcpCmd)
 }
