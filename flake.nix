@@ -38,7 +38,7 @@
 
           meta = with pkgs.lib; {
             description = "LSP Multiplexer that routes requests to language servers based on file type";
-            homepage = "https://github.com/friedenberg/lux";
+            homepage = "https://github.com/amarbel-llc/lux";
             license = licenses.mit;
           };
         };

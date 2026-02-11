@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/friedenberg/lux/internal/lsp"
+	"github.com/amarbel-llc/go-lib-mcp/protocol"
+	"github.com/amarbel-llc/lux/internal/lsp"
 )
 
-type ToolHandler func(ctx context.Context, args json.RawMessage) (*ToolCallResult, error)
+type ToolHandler func(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResult, error)
 
 type ToolRegistry struct {
-	tools    []Tool
+	tools    []protocol.Tool
 	handlers map[string]ToolHandler
 	bridge   *Bridge
 }
@@ -25,20 +26,20 @@ func NewToolRegistry(bridge *Bridge) *ToolRegistry {
 	return r
 }
 
-func (r *ToolRegistry) List() []Tool {
+func (r *ToolRegistry) List() []protocol.Tool {
 	return r.tools
 }
 
-func (r *ToolRegistry) Call(ctx context.Context, name string, args json.RawMessage) (*ToolCallResult, error) {
+func (r *ToolRegistry) Call(ctx context.Context, name string, args json.RawMessage) (*protocol.ToolCallResult, error) {
 	handler, ok := r.handlers[name]
 	if !ok {
-		return ErrorResult(fmt.Sprintf("unknown tool: %s", name)), nil
+		return protocol.ErrorResult(fmt.Sprintf("unknown tool: %s", name)), nil
 	}
 	return handler(ctx, args)
 }
 
 func (r *ToolRegistry) register(name, description string, schema json.RawMessage, handler ToolHandler) {
-	r.tools = append(r.tools, Tool{
+	r.tools = append(r.tools, protocol.Tool{
 		Name:        name,
 		Description: description,
 		InputSchema: schema,
@@ -202,84 +203,84 @@ type diagnosticsArgs struct {
 	URI string `json:"uri"`
 }
 
-func (r *ToolRegistry) handleHover(ctx context.Context, args json.RawMessage) (*ToolCallResult, error) {
+func (r *ToolRegistry) handleHover(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResult, error) {
 	var a positionArgs
 	if err := json.Unmarshal(args, &a); err != nil {
-		return ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
+		return protocol.ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
 	}
 	return r.bridge.Hover(ctx, lsp.DocumentURI(a.URI), a.Line, a.Character)
 }
 
-func (r *ToolRegistry) handleDefinition(ctx context.Context, args json.RawMessage) (*ToolCallResult, error) {
+func (r *ToolRegistry) handleDefinition(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResult, error) {
 	var a positionArgs
 	if err := json.Unmarshal(args, &a); err != nil {
-		return ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
+		return protocol.ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
 	}
 	return r.bridge.Definition(ctx, lsp.DocumentURI(a.URI), a.Line, a.Character)
 }
 
-func (r *ToolRegistry) handleReferences(ctx context.Context, args json.RawMessage) (*ToolCallResult, error) {
+func (r *ToolRegistry) handleReferences(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResult, error) {
 	var a referencesArgs
 	a.IncludeDeclaration = true // default
 	if err := json.Unmarshal(args, &a); err != nil {
-		return ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
+		return protocol.ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
 	}
 	return r.bridge.References(ctx, lsp.DocumentURI(a.URI), a.Line, a.Character, a.IncludeDeclaration)
 }
 
-func (r *ToolRegistry) handleCompletion(ctx context.Context, args json.RawMessage) (*ToolCallResult, error) {
+func (r *ToolRegistry) handleCompletion(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResult, error) {
 	var a positionArgs
 	if err := json.Unmarshal(args, &a); err != nil {
-		return ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
+		return protocol.ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
 	}
 	return r.bridge.Completion(ctx, lsp.DocumentURI(a.URI), a.Line, a.Character)
 }
 
-func (r *ToolRegistry) handleFormat(ctx context.Context, args json.RawMessage) (*ToolCallResult, error) {
+func (r *ToolRegistry) handleFormat(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResult, error) {
 	var a formatArgs
 	if err := json.Unmarshal(args, &a); err != nil {
-		return ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
+		return protocol.ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
 	}
 	return r.bridge.Format(ctx, lsp.DocumentURI(a.URI))
 }
 
-func (r *ToolRegistry) handleDocumentSymbols(ctx context.Context, args json.RawMessage) (*ToolCallResult, error) {
+func (r *ToolRegistry) handleDocumentSymbols(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResult, error) {
 	var a formatArgs
 	if err := json.Unmarshal(args, &a); err != nil {
-		return ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
+		return protocol.ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
 	}
 	return r.bridge.DocumentSymbols(ctx, lsp.DocumentURI(a.URI))
 }
 
-func (r *ToolRegistry) handleCodeAction(ctx context.Context, args json.RawMessage) (*ToolCallResult, error) {
+func (r *ToolRegistry) handleCodeAction(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResult, error) {
 	var a codeActionArgs
 	if err := json.Unmarshal(args, &a); err != nil {
-		return ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
+		return protocol.ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
 	}
 	return r.bridge.CodeAction(ctx, lsp.DocumentURI(a.URI),
 		a.StartLine, a.StartCharacter, a.EndLine, a.EndCharacter)
 }
 
-func (r *ToolRegistry) handleRename(ctx context.Context, args json.RawMessage) (*ToolCallResult, error) {
+func (r *ToolRegistry) handleRename(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResult, error) {
 	var a renameArgs
 	if err := json.Unmarshal(args, &a); err != nil {
-		return ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
+		return protocol.ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
 	}
 	return r.bridge.Rename(ctx, lsp.DocumentURI(a.URI), a.Line, a.Character, a.NewName)
 }
 
-func (r *ToolRegistry) handleWorkspaceSymbols(ctx context.Context, args json.RawMessage) (*ToolCallResult, error) {
+func (r *ToolRegistry) handleWorkspaceSymbols(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResult, error) {
 	var a workspaceSymbolsArgs
 	if err := json.Unmarshal(args, &a); err != nil {
-		return ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
+		return protocol.ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
 	}
 	return r.bridge.WorkspaceSymbols(ctx, lsp.DocumentURI(a.URI), a.Query)
 }
 
-func (r *ToolRegistry) handleDiagnostics(ctx context.Context, args json.RawMessage) (*ToolCallResult, error) {
+func (r *ToolRegistry) handleDiagnostics(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResult, error) {
 	var a diagnosticsArgs
 	if err := json.Unmarshal(args, &a); err != nil {
-		return ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
+		return protocol.ErrorResult(fmt.Sprintf("invalid arguments: %v", err)), nil
 	}
 	return r.bridge.Diagnostics(ctx, lsp.DocumentURI(a.URI))
 }

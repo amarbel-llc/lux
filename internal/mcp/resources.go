@@ -9,10 +9,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/friedenberg/lux/internal/config"
-	"github.com/friedenberg/lux/internal/lsp"
-	"github.com/friedenberg/lux/internal/subprocess"
-	"github.com/friedenberg/lux/pkg/filematch"
+	"github.com/amarbel-llc/go-lib-mcp/protocol"
+	"github.com/amarbel-llc/lux/internal/config"
+	"github.com/amarbel-llc/lux/internal/lsp"
+	"github.com/amarbel-llc/lux/internal/subprocess"
+	"github.com/amarbel-llc/lux/pkg/filematch"
 )
 
 type ResourceRegistry struct {
@@ -40,8 +41,8 @@ func NewResourceRegistry(pool *subprocess.Pool, bridge *Bridge, cfg *config.Conf
 	}
 }
 
-func (r *ResourceRegistry) List() []Resource {
-	return []Resource{
+func (r *ResourceRegistry) List() []protocol.Resource {
+	return []protocol.Resource{
 		{
 			URI:         "lux://status",
 			Name:        "LSP Status",
@@ -63,8 +64,8 @@ func (r *ResourceRegistry) List() []Resource {
 	}
 }
 
-func (r *ResourceRegistry) ListTemplates() []ResourceTemplate {
-	return []ResourceTemplate{
+func (r *ResourceRegistry) ListTemplates() []protocol.ResourceTemplate {
+	return []protocol.ResourceTemplate{
 		{
 			URITemplate: "lux://symbols/{uri}",
 			Name:        "File Symbols",
@@ -74,7 +75,7 @@ func (r *ResourceRegistry) ListTemplates() []ResourceTemplate {
 	}
 }
 
-func (r *ResourceRegistry) Read(ctx context.Context, uri string) (*ResourceReadResult, error) {
+func (r *ResourceRegistry) Read(ctx context.Context, uri string) (*protocol.ResourceReadResult, error) {
 	switch uri {
 	case "lux://status":
 		return r.readStatus()
@@ -105,7 +106,7 @@ type lspStatus struct {
 	State      string   `json:"state"`
 }
 
-func (r *ResourceRegistry) readStatus() (*ResourceReadResult, error) {
+func (r *ResourceRegistry) readStatus() (*protocol.ResourceReadResult, error) {
 	statuses := r.pool.Status()
 	statusMap := make(map[string]string)
 	for _, s := range statuses {
@@ -158,8 +159,8 @@ func (r *ResourceRegistry) readStatus() (*ResourceReadResult, error) {
 		return nil, err
 	}
 
-	return &ResourceReadResult{
-		Contents: []ResourceContent{
+	return &protocol.ResourceReadResult{
+		Contents: []protocol.ResourceContent{
 			{
 				URI:      "lux://status",
 				MimeType: "application/json",
@@ -177,7 +178,7 @@ type languageInfo struct {
 	Patterns   []string `json:"patterns,omitempty"`
 }
 
-func (r *ResourceRegistry) readLanguages() (*ResourceReadResult, error) {
+func (r *ResourceRegistry) readLanguages() (*protocol.ResourceReadResult, error) {
 	resp := make(languagesResponse)
 
 	for _, l := range r.config.LSPs {
@@ -202,8 +203,8 @@ func (r *ResourceRegistry) readLanguages() (*ResourceReadResult, error) {
 		return nil, err
 	}
 
-	return &ResourceReadResult{
-		Contents: []ResourceContent{
+	return &protocol.ResourceReadResult{
+		Contents: []protocol.ResourceContent{
 			{
 				URI:      "lux://languages",
 				MimeType: "application/json",
@@ -224,7 +225,7 @@ type filesStats struct {
 	ByExtension map[string]int `json:"by_extension"`
 }
 
-func (r *ResourceRegistry) readFiles() (*ResourceReadResult, error) {
+func (r *ResourceRegistry) readFiles() (*protocol.ResourceReadResult, error) {
 	var files []string
 	byExt := make(map[string]int)
 
@@ -272,8 +273,8 @@ func (r *ResourceRegistry) readFiles() (*ResourceReadResult, error) {
 		return nil, err
 	}
 
-	return &ResourceReadResult{
-		Contents: []ResourceContent{
+	return &protocol.ResourceReadResult{
+		Contents: []protocol.ResourceContent{
 			{
 				URI:      "lux://files",
 				MimeType: "application/json",
@@ -288,7 +289,7 @@ type symbolsResponse struct {
 	Symbols []Symbol `json:"symbols"`
 }
 
-func (r *ResourceRegistry) readSymbols(ctx context.Context, resourceURI, fileURI string) (*ResourceReadResult, error) {
+func (r *ResourceRegistry) readSymbols(ctx context.Context, resourceURI, fileURI string) (*protocol.ResourceReadResult, error) {
 	symbols, err := r.bridge.DocumentSymbolsRaw(ctx, lsp.DocumentURI(fileURI))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get symbols: %w", err)
@@ -304,8 +305,8 @@ func (r *ResourceRegistry) readSymbols(ctx context.Context, resourceURI, fileURI
 		return nil, err
 	}
 
-	return &ResourceReadResult{
-		Contents: []ResourceContent{
+	return &protocol.ResourceReadResult{
+		Contents: []protocol.ResourceContent{
 			{
 				URI:      resourceURI,
 				MimeType: "application/json",

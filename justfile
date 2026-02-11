@@ -7,8 +7,10 @@ default:
 build:
     nix build
 
-# Build using go directly (faster for dev)
-build-go:
+build-gomod2nix:
+    nix develop --command gomod2nix
+
+build-go: build-gomod2nix
     nix develop --command go build -o lux ./cmd/lux
 
 # Run tests
@@ -75,5 +77,3 @@ deps:
     nix develop --command gomod2nix
 
 # Regenerate gomod2nix.toml (run after changing go.mod)
-gomod2nix:
-    nix develop --command gomod2nix

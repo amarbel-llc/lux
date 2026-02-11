@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/friedenberg/lux/internal/config"
-	"github.com/friedenberg/lux/internal/lsp"
-	"github.com/friedenberg/lux/pkg/filematch"
+	"github.com/amarbel-llc/lux/internal/config"
+	"github.com/amarbel-llc/lux/internal/lsp"
+	"github.com/amarbel-llc/lux/pkg/filematch"
 )
 
 type Router struct {

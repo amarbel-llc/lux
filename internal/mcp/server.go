@@ -6,11 +6,11 @@ import (
 	"io"
 	"sync"
 
-	"github.com/friedenberg/lux/internal/config"
-	"github.com/friedenberg/lux/internal/jsonrpc"
-	"github.com/friedenberg/lux/internal/server"
-	"github.com/friedenberg/lux/internal/subprocess"
-	"github.com/friedenberg/lux/internal/transport"
+	"github.com/amarbel-llc/go-lib-mcp/jsonrpc"
+	"github.com/amarbel-llc/go-lib-mcp/transport"
+	"github.com/amarbel-llc/lux/internal/config"
+	"github.com/amarbel-llc/lux/internal/server"
+	"github.com/amarbel-llc/lux/internal/subprocess"
 )
 
 type Server struct {

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/friedenberg/lux/internal/subprocess"
+	"github.com/amarbel-llc/lux/internal/subprocess"
 )
 
 type Server struct {

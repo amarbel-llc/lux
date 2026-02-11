@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/friedenberg/lux/internal/jsonrpc"
-	"github.com/friedenberg/lux/internal/lsp"
+	"github.com/amarbel-llc/go-lib-mcp/jsonrpc"
+	"github.com/amarbel-llc/lux/internal/lsp"
 )
 
 type LSPState int

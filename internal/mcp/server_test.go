@@ -7,8 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/friedenberg/lux/internal/config"
-	"github.com/friedenberg/lux/internal/jsonrpc"
+	"github.com/amarbel-llc/go-lib-mcp/jsonrpc"
+	"github.com/amarbel-llc/go-lib-mcp/protocol"
+	"github.com/amarbel-llc/go-lib-mcp/transport"
+	"github.com/amarbel-llc/lux/internal/config"
 )
 
 func TestMCPInitialize(t *testing.T) {
@@ -23,13 +25,13 @@ func TestMCPInitialize(t *testing.T) {
 		t.Errorf("unexpected error: %v", resp.Error)
 	}
 
-	var result InitializeResult
+	var result protocol.InitializeResult
 	if err := json.Unmarshal(resp.Result, &result); err != nil {
 		t.Fatalf("failed to parse result: %v", err)
 	}
 
-	if result.ProtocolVersion != ProtocolVersion {
-		t.Errorf("expected protocol version %s, got %s", ProtocolVersion, result.ProtocolVersion)
+	if result.ProtocolVersion != protocol.ProtocolVersion {
+		t.Errorf("expected protocol version %s, got %s", protocol.ProtocolVersion, result.ProtocolVersion)
 	}
 	if result.ServerInfo.Name != "lux" {
 		t.Errorf("expected server name 'lux', got %s", result.ServerInfo.Name)
@@ -57,7 +59,7 @@ func TestMCPToolsList(t *testing.T) {
 		t.Errorf("unexpected error: %v", resp.Error)
 	}
 
-	var result ToolsListResult
+	var result protocol.ToolsListResult
 	if err := json.Unmarshal(resp.Result, &result); err != nil {
 		t.Fatalf("failed to parse result: %v", err)
 	}
@@ -149,7 +151,7 @@ func runMCPTestMulti(t *testing.T, msgs ...string) []*jsonrpc.Message {
 
 	var output bytes.Buffer
 	cfg := &config.Config{}
-	tr := NewStdioTransport(strings.NewReader(input.String()), &output)
+	tr := transport.NewStdio(strings.NewReader(input.String()), &output)
 
 	srv, err := New(cfg, tr)
 	if err != nil {

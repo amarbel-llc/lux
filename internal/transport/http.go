@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/friedenberg/lux/internal/jsonrpc"
+	"github.com/amarbel-llc/go-lib-mcp/jsonrpc"
 )
 
 // StreamableHTTP implements the MCP Streamable HTTP transport.

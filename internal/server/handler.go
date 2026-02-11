@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/friedenberg/lux/internal/jsonrpc"
-	"github.com/friedenberg/lux/internal/lsp"
-	"github.com/friedenberg/lux/internal/subprocess"
+	"github.com/amarbel-llc/go-lib-mcp/jsonrpc"
+	"github.com/amarbel-llc/lux/internal/lsp"
+	"github.com/amarbel-llc/lux/internal/subprocess"
 )
 
 type Handler struct {

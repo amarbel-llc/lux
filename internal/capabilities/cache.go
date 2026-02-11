@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/friedenberg/lux/internal/config"
-	"github.com/friedenberg/lux/internal/lsp"
+	"github.com/amarbel-llc/lux/internal/config"
+	"github.com/amarbel-llc/lux/internal/lsp"
 )
 
 func LoadAllCached() (map[string]*CachedCapabilities, error) {

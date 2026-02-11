@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/friedenberg/lux/internal/config"
-	"github.com/friedenberg/lux/internal/jsonrpc"
-	"github.com/friedenberg/lux/internal/lsp"
-	"github.com/friedenberg/lux/internal/subprocess"
+	"github.com/amarbel-llc/go-lib-mcp/jsonrpc"
+	"github.com/amarbel-llc/lux/internal/config"
+	"github.com/amarbel-llc/lux/internal/lsp"
+	"github.com/amarbel-llc/lux/internal/subprocess"
 )
 
 func Bootstrap(ctx context.Context, flake string) error {

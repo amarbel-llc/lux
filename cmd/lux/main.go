@@ -7,12 +7,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/friedenberg/lux/internal/capabilities"
-	"github.com/friedenberg/lux/internal/config"
-	"github.com/friedenberg/lux/internal/control"
-	"github.com/friedenberg/lux/internal/mcp"
-	"github.com/friedenberg/lux/internal/server"
-	"github.com/friedenberg/lux/internal/transport"
+	"github.com/amarbel-llc/go-lib-mcp/transport"
+	"github.com/amarbel-llc/lux/internal/capabilities"
+	"github.com/amarbel-llc/lux/internal/config"
+	"github.com/amarbel-llc/lux/internal/control"
+	"github.com/amarbel-llc/lux/internal/mcp"
+	"github.com/amarbel-llc/lux/internal/server"
+	luxtransport "github.com/amarbel-llc/lux/internal/transport"
 )
 
 var rootCmd = &cobra.Command{
@@ -160,7 +161,7 @@ var mcpStdioCmd = &cobra.Command{
 			return fmt.Errorf("loading config: %w", err)
 		}
 
-		t := mcp.NewStdioTransport(os.Stdin, os.Stdout)
+		t := transport.NewStdio(os.Stdin, os.Stdout)
 		srv, err := mcp.New(cfg, t)
 		if err != nil {
 			return fmt.Errorf("creating MCP server: %w", err)
@@ -182,7 +183,7 @@ var mcpSSECmd = &cobra.Command{
 			return fmt.Errorf("loading config: %w", err)
 		}
 
-		t := transport.NewSSE(mcpSSEAddr)
+		t := luxtransport.NewSSE(mcpSSEAddr)
 		srv, err := mcp.New(cfg, t)
 		if err != nil {
 			return fmt.Errorf("creating MCP server: %w", err)
@@ -212,7 +213,7 @@ var mcpHTTPCmd = &cobra.Command{
 			return fmt.Errorf("loading config: %w", err)
 		}
 
-		t := transport.NewStreamableHTTP(mcpHTTPAddr)
+		t := luxtransport.NewStreamableHTTP(mcpHTTPAddr)
 		srv, err := mcp.New(cfg, t)
 		if err != nil {
 			return fmt.Errorf("creating MCP server: %w", err)

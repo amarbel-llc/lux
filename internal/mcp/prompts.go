@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"fmt"
+
+	"github.com/amarbel-llc/go-lib-mcp/protocol"
 )
 
 const codeExplorationPrompt = `When exploring an unfamiliar codebase, use lux LSP tools strategically:
@@ -58,7 +60,7 @@ type PromptRegistry struct {
 }
 
 type promptDef struct {
-	prompt  Prompt
+	prompt  protocol.Prompt
 	content string
 }
 
@@ -68,7 +70,7 @@ func NewPromptRegistry() *PromptRegistry {
 	}
 
 	r.prompts["code-exploration"] = promptDef{
-		prompt: Prompt{
+		prompt: protocol.Prompt{
 			Name:        "code-exploration",
 			Description: "Best practices for exploring and understanding code using LSP tools",
 		},
@@ -76,7 +78,7 @@ func NewPromptRegistry() *PromptRegistry {
 	}
 
 	r.prompts["refactoring-guide"] = promptDef{
-		prompt: Prompt{
+		prompt: protocol.Prompt{
 			Name:        "refactoring-guide",
 			Description: "How to safely refactor code using LSP-assisted tools",
 		},
@@ -86,26 +88,26 @@ func NewPromptRegistry() *PromptRegistry {
 	return r
 }
 
-func (r *PromptRegistry) List() []Prompt {
-	var result []Prompt
+func (r *PromptRegistry) List() []protocol.Prompt {
+	var result []protocol.Prompt
 	for _, p := range r.prompts {
 		result = append(result, p.prompt)
 	}
 	return result
 }
 
-func (r *PromptRegistry) Get(name string, args map[string]string) (*PromptGetResult, error) {
+func (r *PromptRegistry) Get(name string, args map[string]string) (*protocol.PromptGetResult, error) {
 	def, ok := r.prompts[name]
 	if !ok {
 		return nil, fmt.Errorf("unknown prompt: %s", name)
 	}
 
-	return &PromptGetResult{
+	return &protocol.PromptGetResult{
 		Description: def.prompt.Description,
-		Messages: []PromptMessage{
+		Messages: []protocol.PromptMessage{
 			{
 				Role:    "user",
-				Content: TextContent(def.content),
+				Content: protocol.TextContent(def.content),
 			},
 		},
 	}, nil

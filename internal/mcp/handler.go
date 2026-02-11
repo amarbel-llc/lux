@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/friedenberg/lux/internal/jsonrpc"
+	"github.com/amarbel-llc/go-lib-mcp/jsonrpc"
+	"github.com/amarbel-llc/go-lib-mcp/protocol"
 )
 
 type Handler struct {
@@ -18,25 +19,25 @@ func NewHandler(s *Server) *Handler {
 
 func (h *Handler) Handle(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
 	switch msg.Method {
-	case MethodInitialize:
+	case protocol.MethodInitialize:
 		return h.handleInitialize(ctx, msg)
-	case MethodInitialized:
+	case protocol.MethodInitialized:
 		return nil, nil
-	case MethodPing:
+	case protocol.MethodPing:
 		return h.handlePing(ctx, msg)
-	case MethodToolsList:
+	case protocol.MethodToolsList:
 		return h.handleToolsList(ctx, msg)
-	case MethodToolsCall:
+	case protocol.MethodToolsCall:
 		return h.handleToolsCall(ctx, msg)
-	case MethodResourcesList:
+	case protocol.MethodResourcesList:
 		return h.handleResourcesList(ctx, msg)
-	case MethodResourcesRead:
+	case protocol.MethodResourcesRead:
 		return h.handleResourcesRead(ctx, msg)
-	case MethodResourcesTemplates:
+	case protocol.MethodResourcesTemplates:
 		return h.handleResourcesTemplates(ctx, msg)
-	case MethodPromptsList:
+	case protocol.MethodPromptsList:
 		return h.handlePromptsList(ctx, msg)
-	case MethodPromptsGet:
+	case protocol.MethodPromptsGet:
 		return h.handlePromptsGet(ctx, msg)
 	default:
 		if msg.IsRequest() {
@@ -48,21 +49,21 @@ func (h *Handler) Handle(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Me
 }
 
 func (h *Handler) handleInitialize(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
-	var params InitializeParams
+	var params protocol.InitializeParams
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return jsonrpc.NewErrorResponse(*msg.ID, jsonrpc.InvalidParams, "invalid params", nil)
 	}
 
 	h.initialized = true
 
-	result := InitializeResult{
-		ProtocolVersion: ProtocolVersion,
-		Capabilities: ServerCapabilities{
-			Tools:     &ToolsCapability{},
-			Resources: &ResourcesCapability{},
-			Prompts:   &PromptsCapability{},
+	result := protocol.InitializeResult{
+		ProtocolVersion: protocol.ProtocolVersion,
+		Capabilities: protocol.ServerCapabilities{
+			Tools:     &protocol.ToolsCapability{},
+			Resources: &protocol.ResourcesCapability{},
+			Prompts:   &protocol.PromptsCapability{},
 		},
-		ServerInfo: Implementation{
+		ServerInfo: protocol.Implementation{
 			Name:    "lux",
 			Version: "0.1.0",
 		},
@@ -72,18 +73,18 @@ func (h *Handler) handleInitialize(ctx context.Context, msg *jsonrpc.Message) (*
 }
 
 func (h *Handler) handlePing(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
-	return jsonrpc.NewResponse(*msg.ID, PingResult{})
+	return jsonrpc.NewResponse(*msg.ID, protocol.PingResult{})
 }
 
 func (h *Handler) handleToolsList(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
-	result := ToolsListResult{
+	result := protocol.ToolsListResult{
 		Tools: h.server.tools.List(),
 	}
 	return jsonrpc.NewResponse(*msg.ID, result)
 }
 
 func (h *Handler) handleToolsCall(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
-	var params ToolCallParams
+	var params protocol.ToolCallParams
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return jsonrpc.NewErrorResponse(*msg.ID, jsonrpc.InvalidParams, "invalid params", nil)
 	}
@@ -96,14 +97,14 @@ func (h *Handler) handleToolsCall(ctx context.Context, msg *jsonrpc.Message) (*j
 }
 
 func (h *Handler) handleResourcesList(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
-	result := ResourcesListResult{
+	result := protocol.ResourcesListResult{
 		Resources: h.server.resources.List(),
 	}
 	return jsonrpc.NewResponse(*msg.ID, result)
 }
 
 func (h *Handler) handleResourcesRead(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
-	var params ResourceReadParams
+	var params protocol.ResourceReadParams
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return jsonrpc.NewErrorResponse(*msg.ID, jsonrpc.InvalidParams, "invalid params", nil)
 	}
@@ -116,21 +117,21 @@ func (h *Handler) handleResourcesRead(ctx context.Context, msg *jsonrpc.Message)
 }
 
 func (h *Handler) handleResourcesTemplates(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
-	result := ResourceTemplatesListResult{
+	result := protocol.ResourceTemplatesListResult{
 		ResourceTemplates: h.server.resources.ListTemplates(),
 	}
 	return jsonrpc.NewResponse(*msg.ID, result)
 }
 
 func (h *Handler) handlePromptsList(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
-	result := PromptsListResult{
+	result := protocol.PromptsListResult{
 		Prompts: h.server.prompts.List(),
 	}
 	return jsonrpc.NewResponse(*msg.ID, result)
 }
 
 func (h *Handler) handlePromptsGet(ctx context.Context, msg *jsonrpc.Message) (*jsonrpc.Message, error) {
-	var params PromptGetParams
+	var params protocol.PromptGetParams
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return jsonrpc.NewErrorResponse(*msg.ID, jsonrpc.InvalidParams, "invalid params", nil)
 	}

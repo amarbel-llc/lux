@@ -15,13 +15,13 @@ Lux is an LSP (Language Server Protocol) multiplexer that routes requests to mul
 ### Using Nix
 
 ```bash
-nix build github:friedenberg/lux
+nix build github:amarbel-llc/lux
 ```
 
 ### Install as MCP Server for Claude Code
 
 ```bash
-nix run github:friedenberg/lux#install-mcp
+nix run github:amarbel-llc/lux#install-mcp
 ```
 
 This adds lux to your `~/.claude/mcp.json` configuration.

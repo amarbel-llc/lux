@@ -1,7 +1,7 @@
 package transport
 
 import (
-	"github.com/friedenberg/lux/internal/jsonrpc"
+	"github.com/amarbel-llc/go-lib-mcp/jsonrpc"
 )
 
 type Transport interface {
