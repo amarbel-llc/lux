@@ -44,7 +44,7 @@ func New(cfg *config.Config, t transport.Transport) (*Server, error) {
 	s.pool = subprocess.NewPool(executor, s.lspNotificationHandler())
 
 	for _, l := range cfg.LSPs {
-		s.pool.Register(l.Name, l.Flake, l.Args)
+		s.pool.Register(l.Name, l.Flake, l.Binary, l.Args)
 	}
 
 	s.bridge = NewBridge(s.pool, s.router)

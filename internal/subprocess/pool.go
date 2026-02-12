@@ -44,6 +44,7 @@ func (s LSPState) String() string {
 type LSPInstance struct {
 	Name         string
 	Flake        string
+	Binary       string
 	Args         []string
 	State        LSPState
 	Process      *Process
@@ -72,15 +73,16 @@ func NewPool(executor Executor, handler jsonrpc.Handler) *Pool {
 	}
 }
 
-func (p *Pool) Register(name, flake string, args []string) {
+func (p *Pool) Register(name, flake, binary string, args []string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	p.instances[name] = &LSPInstance{
-		Name:  name,
-		Flake: flake,
-		Args:  args,
-		State: LSPStateIdle,
+		Name:   name,
+		Flake:  flake,
+		Binary: binary,
+		Args:   args,
+		State:  LSPStateIdle,
 	}
 }
 
@@ -127,7 +129,7 @@ func (p *Pool) GetOrStart(ctx context.Context, name string, initParams *lsp.Init
 	inst.State = LSPStateStarting
 	inst.ctx, inst.cancel = context.WithCancel(ctx)
 
-	binPath, err := p.executor.Build(inst.ctx, inst.Flake)
+	binPath, err := p.executor.Build(inst.ctx, inst.Flake, inst.Binary)
 	if err != nil {
 		inst.State = LSPStateFailed
 		inst.Error = err

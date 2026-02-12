@@ -22,9 +22,14 @@ func NewNixExecutor() *NixExecutor {
 	}
 }
 
-func (e *NixExecutor) Build(ctx context.Context, flake string) (string, error) {
+func (e *NixExecutor) Build(ctx context.Context, flake, binarySpec string) (string, error) {
+	cacheKey := flake
+	if binarySpec != "" {
+		cacheKey = flake + "::" + binarySpec
+	}
+
 	e.cacheMu.RLock()
-	if path, ok := e.cache[flake]; ok {
+	if path, ok := e.cache[cacheKey]; ok {
 		e.cacheMu.RUnlock()
 		return path, nil
 	}
@@ -47,19 +52,47 @@ func (e *NixExecutor) Build(ctx context.Context, flake string) (string, error) {
 	lines := strings.Split(outPath, "\n")
 	outPath = strings.TrimSpace(lines[0])
 
-	binPath, err := findExecutable(outPath)
+	binPath, err := findExecutable(outPath, binarySpec)
 	if err != nil {
 		return "", err
 	}
 
 	e.cacheMu.Lock()
-	e.cache[flake] = binPath
+	e.cache[cacheKey] = binPath
 	e.cacheMu.Unlock()
 
 	return binPath, nil
 }
 
-func findExecutable(storePath string) (string, error) {
+func findExecutable(storePath, binarySpec string) (string, error) {
+	if binarySpec != "" {
+		var candidatePath string
+
+		if strings.Contains(binarySpec, "/") {
+			candidatePath = filepath.Join(storePath, binarySpec)
+		} else {
+			candidatePath = filepath.Join(storePath, "bin", binarySpec)
+		}
+
+		cleanPath := filepath.Clean(candidatePath)
+		if !strings.HasPrefix(cleanPath, filepath.Clean(storePath)) {
+			return "", fmt.Errorf("binary path %q escapes store path", binarySpec)
+		}
+
+		info, err := os.Stat(candidatePath)
+		if err != nil {
+			return "", fmt.Errorf("binary %q not found: %w", binarySpec, err)
+		}
+		if info.IsDir() {
+			return "", fmt.Errorf("binary %q is a directory", binarySpec)
+		}
+		if info.Mode()&0111 == 0 {
+			return "", fmt.Errorf("binary %q is not executable", binarySpec)
+		}
+
+		return candidatePath, nil
+	}
+
 	binDir := filepath.Join(storePath, "bin")
 
 	entries, err := os.ReadDir(binDir)

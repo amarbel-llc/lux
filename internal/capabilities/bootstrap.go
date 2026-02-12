@@ -15,11 +15,11 @@ import (
 	"github.com/amarbel-llc/lux/internal/subprocess"
 )
 
-func Bootstrap(ctx context.Context, flake string) error {
+func Bootstrap(ctx context.Context, flake, binarySpec string) error {
 	fmt.Printf("Building %s...\n", flake)
 
 	executor := subprocess.NewNixExecutor()
-	binPath, err := executor.Build(ctx, flake)
+	binPath, err := executor.Build(ctx, flake, binarySpec)
 	if err != nil {
 		return fmt.Errorf("building flake: %w", err)
 	}
@@ -131,6 +131,7 @@ func Bootstrap(ctx context.Context, flake string) error {
 	lspConfig := config.LSP{
 		Name:        name,
 		Flake:       flake,
+		Binary:      binarySpec,
 		Extensions:  extensions,
 		LanguageIDs: languageIDs,
 	}

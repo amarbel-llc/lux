@@ -16,6 +16,7 @@ type Config struct {
 type LSP struct {
 	Name        string   `toml:"name"`
 	Flake       string   `toml:"flake"`
+	Binary      string   `toml:"binary,omitempty"`
 	Extensions  []string `toml:"extensions"`
 	Patterns    []string `toml:"patterns"`
 	LanguageIDs []string `toml:"language_ids"`

@@ -41,6 +41,8 @@ var serveCmd = &cobra.Command{
 	},
 }
 
+var addBinary string
+
 var addCmd = &cobra.Command{
 	Use:   "add <flake>",
 	Short: "Add an LSP from a nix flake",
@@ -48,7 +50,7 @@ var addCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		flake := args[0]
-		return capabilities.Bootstrap(cmd.Context(), flake)
+		return capabilities.Bootstrap(cmd.Context(), flake, addBinary)
 	},
 }
 
@@ -69,6 +71,9 @@ var listCmd = &cobra.Command{
 
 		for _, lsp := range cfg.LSPs {
 			fmt.Printf("%-20s %s\n", lsp.Name, lsp.Flake)
+			if lsp.Binary != "" {
+				fmt.Printf("  binary:     %s\n", lsp.Binary)
+			}
 			if len(lsp.Extensions) > 0 {
 				fmt.Printf("  extensions: %v\n", lsp.Extensions)
 			}
@@ -270,7 +275,11 @@ var mcpInstallClaudeCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(serveCmd)
+
+	addCmd.Flags().StringVarP(&addBinary, "binary", "b", "",
+		"Specify custom binary name or path within the flake (e.g., 'rust-analyzer' or 'bin/custom-lsp')")
 	rootCmd.AddCommand(addCmd)
+
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(startCmd)

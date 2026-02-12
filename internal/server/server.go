@@ -41,7 +41,7 @@ func New(cfg *config.Config) (*Server, error) {
 	s.pool = subprocess.NewPool(executor, serverNotificationHandler(s))
 
 	for _, l := range cfg.LSPs {
-		s.pool.Register(l.Name, l.Flake, l.Args)
+		s.pool.Register(l.Name, l.Flake, l.Binary, l.Args)
 	}
 
 	return s, nil
