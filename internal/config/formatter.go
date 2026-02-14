@@ -22,6 +22,7 @@ type FormatterConfig struct {
 type Formatter struct {
 	Name       string            `toml:"name"`
 	Flake      string            `toml:"flake"`
+	Binary     string            `toml:"binary,omitempty"`
 	Path       string            `toml:"path"`
 	Extensions []string          `toml:"extensions"`
 	Patterns   []string          `toml:"patterns"`

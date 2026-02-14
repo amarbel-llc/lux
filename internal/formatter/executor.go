@@ -21,7 +21,7 @@ type Result struct {
 
 func ResolveExecutable(ctx context.Context, f *config.Formatter, executor subprocess.Executor) (string, error) {
 	if f.Flake != "" {
-		return executor.Build(ctx, f.Flake)
+		return executor.Build(ctx, f.Flake, f.Binary)
 	}
 	return config.ExpandEnvVars(f.Path), nil
 }
