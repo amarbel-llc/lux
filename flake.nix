@@ -29,12 +29,28 @@
 
         version = "0.1.0";
 
+        manDocSrc = ./doc;
+
         lux = pkgs.buildGoApplication {
           pname = "lux";
           inherit version;
           src = ./.;
           modules = ./gomod2nix.toml;
           subPackages = [ "cmd/lux" ];
+
+          nativeBuildInputs = [ pkgs.scdoc ];
+
+          ldflags = [ "-X main.version=${version}" ];
+
+          postInstall = ''
+            # Section 1: generate from cobra commands
+            mkdir -p $out/share/man/man1
+            $out/bin/lux genman $out/share/man/man1
+
+            # Section 5: compile scdoc source
+            mkdir -p $out/share/man/man5
+            scdoc < ${manDocSrc}/lux-config.5.scd > $out/share/man/man5/lux-config.5
+          '';
 
           meta = with pkgs.lib; {
             description = "LSP Multiplexer that routes requests to language servers based on file type";

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 
 	"github.com/amarbel-llc/go-lib-mcp/transport"
 	"github.com/amarbel-llc/lux/internal/capabilities"
@@ -336,6 +337,24 @@ var formatCmd = &cobra.Command{
 	},
 }
 
+var version = "dev"
+
+var genmanCmd = &cobra.Command{
+	Use:    "genman <output-dir>",
+	Short:  "Generate man pages",
+	Hidden: true,
+	Args:   cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		header := &doc.GenManHeader{
+			Title:   "LUX",
+			Section: "1",
+			Source:  "lux " + version,
+			Manual:  "User Commands",
+		}
+		return doc.GenManTree(rootCmd, header, args[0])
+	},
+}
+
 func init() {
 	formatCmd.Flags().BoolVar(&formatStdout, "stdout", false, "Print formatted output to stdout instead of writing in-place")
 
@@ -362,6 +381,7 @@ func init() {
 	mcpCmd.AddCommand(mcpInstallClaudeCmd)
 
 	rootCmd.AddCommand(mcpCmd)
+	rootCmd.AddCommand(genmanCmd)
 }
 
 func main() {
