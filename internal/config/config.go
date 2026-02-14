@@ -84,8 +84,10 @@ func (c *Config) SocketPath() string {
 }
 
 func Load() (*Config, error) {
-	path := ConfigPath()
+	return LoadFrom(ConfigPath())
+}
 
+func LoadFrom(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -174,8 +176,10 @@ func (c *Config) FindLSP(name string) *LSP {
 }
 
 func Save(cfg *Config) error {
-	path := ConfigPath()
+	return SaveTo(ConfigPath(), cfg)
+}
 
+func SaveTo(path string, cfg *Config) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)
@@ -196,7 +200,11 @@ func Save(cfg *Config) error {
 }
 
 func AddLSP(lsp LSP) error {
-	cfg, err := Load()
+	return AddLSPTo(ConfigPath(), lsp)
+}
+
+func AddLSPTo(path string, lsp LSP) error {
+	cfg, err := LoadFrom(path)
 	if err != nil {
 		return err
 	}
@@ -204,12 +212,12 @@ func AddLSP(lsp LSP) error {
 	for i, existing := range cfg.LSPs {
 		if existing.Name == lsp.Name {
 			cfg.LSPs[i] = lsp
-			return Save(cfg)
+			return SaveTo(path, cfg)
 		}
 	}
 
 	cfg.LSPs = append(cfg.LSPs, lsp)
-	return Save(cfg)
+	return SaveTo(path, cfg)
 }
 
 func isValidEnvVarName(name string) bool {

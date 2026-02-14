@@ -15,7 +15,10 @@ import (
 	"github.com/amarbel-llc/lux/internal/subprocess"
 )
 
-func Bootstrap(ctx context.Context, flake, binarySpec string) error {
+func Bootstrap(ctx context.Context, flake, binarySpec, configPath string) error {
+	if configPath == "" {
+		configPath = config.ConfigPath()
+	}
 	fmt.Printf("Building %s...\n", flake)
 
 	executor := subprocess.NewNixExecutor()
@@ -136,7 +139,7 @@ func Bootstrap(ctx context.Context, flake, binarySpec string) error {
 		LanguageIDs: languageIDs,
 	}
 
-	if err := config.AddLSP(lspConfig); err != nil {
+	if err := config.AddLSPTo(configPath, lspConfig); err != nil {
 		return fmt.Errorf("saving config: %w", err)
 	}
 
@@ -148,7 +151,7 @@ func Bootstrap(ctx context.Context, flake, binarySpec string) error {
 	if len(languageIDs) > 0 {
 		fmt.Printf("  Languages: %v\n", languageIDs)
 	}
-	fmt.Printf("\nConfig saved to: %s\n", config.ConfigPath())
+	fmt.Printf("\nConfig saved to: %s\n", configPath)
 	fmt.Println("You can edit the config to adjust file type matching.")
 
 	return nil

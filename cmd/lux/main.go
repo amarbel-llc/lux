@@ -46,6 +46,7 @@ var serveCmd = &cobra.Command{
 }
 
 var addBinary string
+var addConfigPath string
 
 var addCmd = &cobra.Command{
 	Use:   "add <flake>",
@@ -54,7 +55,7 @@ var addCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		flake := args[0]
-		return capabilities.Bootstrap(cmd.Context(), flake, addBinary)
+		return capabilities.Bootstrap(cmd.Context(), flake, addBinary, addConfigPath)
 	},
 }
 
@@ -362,6 +363,8 @@ func init() {
 
 	addCmd.Flags().StringVarP(&addBinary, "binary", "b", "",
 		"Specify custom binary name or path within the flake (e.g., 'rust-analyzer' or 'bin/custom-lsp')")
+	addCmd.Flags().StringVar(&addConfigPath, "config-path", "",
+		"Write to a custom config file location instead of the default")
 	rootCmd.AddCommand(addCmd)
 
 	rootCmd.AddCommand(listCmd)
