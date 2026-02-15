@@ -50,6 +50,10 @@
             # Section 5: compile scdoc source
             mkdir -p $out/share/man/man5
             scdoc < ${manDocSrc}/lux-config.5.scd > $out/share/man/man5/lux-config.5
+
+            # purse-first plugin manifest
+            mkdir -p $out/share/purse-first/lux
+            cp ${./plugin.json} $out/share/purse-first/lux/plugin.json
           '';
 
           meta = with pkgs.lib; {
